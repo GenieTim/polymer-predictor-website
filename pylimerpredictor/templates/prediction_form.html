@@ -1,0 +1,174 @@
+{% extends "base.html" %}
+
+{% block title %}
+Predict Polymer Properties
+{% endblock %}
+
+
+{% block custom_javascript %}
+<script type="text/javascript">
+  function resetLimitsOfP() {
+    const r = document.getElementById("stoichiometric_imbalance").value;
+    const f = document.getElementById("crosslink_functionality").value;
+    const n_bifunctional_chains = document.getElementById("n_bifunctional_chains").value;
+    const n_monofunctional_chains = document.getElementById("n_monofunctional_chains").value;
+
+    const b2 = (2 * n_bifunctional_chains) / (
+      2 * n_bifunctional_chains + n_monofunctional_chains
+    );
+
+    const pgel = Math.sqrt(1 / (r * (f - 1) * b2));
+
+    const p = document.getElementById("crosslink_conversion");
+    p.setAttribute(
+      "min", pgel
+    );
+
+    const n_xlinks = r * 2 * b2 / f;
+    const max_possible_bonds = Math.min(2, f * n_xlinks);
+    const p_max = max_possible_bonds / (n_xlinks * f);
+
+    p.setAttribute(
+      "max", p_max
+    );
+  }
+
+  window.addEventListener("load", () => {
+    const resetters = [
+      "stoichiometric_imbalance",
+      "crosslink_functionality",
+      "n_bifunctional_chains",
+      "n_monofunctional_chains",
+    ];
+    resetters.forEach((resetter) => {
+      document.getElementById(resetter).addEventListener("change", resetLimitsOfP);
+    });
+
+    // add event listeners to actually make and load the predictions
+    const predictForm = document.getElementById("prediction-input");
+    predictForm.querySelectorAll("input").forEach((input) => {
+      input.addEventListener("change", () => {
+        if (!document.getElementById("prediction-output").classList.contains("not-current")) {
+          document.getElementById("prediction-output").classList.add("not-current");
+        }
+      })
+    });
+    predictForm.addEventListener("submit", (event) => {
+      event.preventDefault();
+      predictForm.classList.remove("not-current");
+      // assemble the form values into one json to submit
+      let predictionInput = {};
+      predictForm.querySelectorAll("input").forEach((input) => {
+        predictionInput[input.name] = input.value;
+      });
+      // make predictions by calling our api endpoints by posing the JSON
+      const divIdToUrl = {
+        "mmt-results": mmt_url,
+        "nn-results": nn_url,
+        "ant-results": ant_url,
+      };
+
+      for (const id in divIdToUrl) {
+        document.getElementById(id).innerHTML = "<p>Computing...</p>";
+        const url = divIdToUrl[id];
+        const promise = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Accept': 'html/text',
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(predictionInput)
+        });
+        promise.then(result => {
+          result.text()
+        }).then((resultText) => {
+          document.getElementById(id).innerHTML = resultText;
+        });
+      }
+
+      return false;
+    });
+  });
+</script>
+<script type="text/javascript">
+  var mmt_url = "{% url "mmt_prediction" %}";
+  var nn_url = "{% url "nn_prediction" %}";
+  var ant_url = "{% url "ant_prediction" %}";
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+  <div class="row">
+    <div class="column">
+      <h2>Input</h2>
+      <form id="prediction-input">
+        <label for="polymer">Polymer:</label>
+        <input class="form-control disabled" type="text" id="polymer" name="polymer" required value="PDMS">
+
+        <label for="temperature">Temperature [K]:</label>
+        <input class="form-control" type="number" id="temperature" name="temperature" required value="293.15" min="0"
+          disabled>
+
+        <label for="density">Density [kg/cm^3]:</label>
+        <input class="form-control" type="number" id="density" name="density" required min="0" disabled value="0.965">
+
+        <label for="plateau_modulus">Entanglement modulus <i>G</i><sub>e</sub>(1) [MPa]</label>
+        <input class="form-control" type="number" id="plateau_modulus" name="plateau_modulus" required min="0" disabled
+          value="0.2">
+
+        <label for="bead_mass">Bead mass [kg/mol]</label>
+        <input class="form-control" type="number" id="bead_mass" name="bead_mass" required min="0" disabled
+          value="0.262525018">
+
+        <label for="mean_squared_bead_distance">Mean squared bead distance <i>&lt;b<sup>2</sup>&gt;</i>
+          [nm<sup>2</sup>]</label>
+        <input class="form-control" type="number" id="mean_squared_bead_distance" name="mean_squared_bead_distance"
+          required min="0" disabled value="1.10700879">
+
+        <label for="stoichiometric_imbalance">Stoichiometric imbalance <i>r</i>:</label>
+        <input class="form-control" type="number" id="stoichiometric_imbalance" name="stoichiometric_imbalance" required
+          min="0" max="1" step="0.01">
+
+        <label for="crosslink_functionality">Cross-link functionality <i>f</i>:</label>
+        <input class="form-control" type="number" id="crosslink_functionality" name="crosslink_functionality" required
+          min="3" max="6" step="1">
+
+        <label for="crosslink_conversion">Cross-link conversion <i>p</i>:</label>
+        <input class="form-control" type="number" id="crosslink_conversion" name="crosslink_conversion" required min="0"
+          max="1" step="0.01">
+
+        <label for="n_bifunctional_chains">Number of bifunctional chains:</label>
+        <input class="form-control" type="number" id="n_bifunctional_chains" name="n_bifunctional_chains" required
+          min="0" max="10000">
+
+        <label for="n_monofunctional_chains">Number of monofunctional chains:</label>
+        <input class="form-control" type="number" id="n_monofunctional_chains" name="n_monofunctional_chains" required
+          min="0" max="10000">
+
+        <label for="n_beads_bifunctional">Number of beads in bifunctional chains:</label>
+        <input class="form-control" type="number" id="n_beads_bifunctional" name="n_beads_bifunctional" required min="1"
+          max="500" step="1">
+
+        <label for="n_beads_monofunctional">Number of beads in monofunctional chains:</label>
+        <input class="form-control" type="number" id="n_beads_monofunctional" name="n_beads_monofunctional" required
+          min="1" max="500" step="1">
+
+        <input class="button button-primary" type="submit" value="Predict">
+      </form>
+    </div>
+
+    <div class="column">
+      <h2>Prediction</h2>
+      <div id="prediction-output" class="not-current">
+        <div id="mmt-results"></div>
+        <div id="nn-results"></div>
+        <div id="ant-results"></div>
+      </div>
+    </div>
+
+  </div>
+
+</div>
+
+{% endblock %}

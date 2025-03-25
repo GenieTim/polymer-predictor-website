@@ -1,0 +1,9 @@
+.not-current {
+  /** blur the whole content since the data is not accurate anymore */
+  filter: blur(5px);
+  /** also add a slight dark tint  */
+  background-color: rgba(0, 0, 0, 0.1);
+  transition:
+    background-color 0.3s ease,
+    filter 0.25s ease-in-out;
+}
