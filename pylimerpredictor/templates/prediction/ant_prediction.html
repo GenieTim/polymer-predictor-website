@@ -1,17 +1,57 @@
 <div class="prediction">
-  <h2>ANT Estimates</h2>
-  <div class="main">
-    <i>G</i><sub>eq</sub> = {{ g_ant }} MPa
-  </div>
-  <div class="split-up">
-    <i>G</i><sub>phantom</sub> = {{ g_phantom }} MPa,
-    <i>G</i><sub>entangled</sub> = {{ g_ant - g_phantom }} MPa
-  </div>
-  <div class="other">
-    <i>w</i><sub>soluble</sub> = {{ w_soluble }},
-    <i>w</i><sub>dangling</sub> = {{ w_dangling }},
-    <i>w</i><sub>backbone</sub> = {{ w_backbone }},
-  </div>
+  <div class="card">
+    <div class="card-header">
+      <h5 class="card-title mb-0">ANT Estimates</h5>
+    </div>
+    <div class="card-body">
+      <!-- Primary result -->
+      <div class="text-center p-3 bg-success text-white rounded mb-3">
+        <h3 class="mb-0"><i>G</i><sub>eq</sub> = {{ g_ant|floatformat:2 }} MPa</h3>
+      </div>
 
-  <!-- TODO: plot of normal mode analysis -->
+      <!-- Detailed breakdown -->
+      <div class="row mb-3">
+        <div class="col-6">
+          <div class="text-center p-2 bg-light rounded">
+            <small class="text-muted d-block">Phantom</small>
+            <strong>{{ g_phantom|floatformat:2 }}</strong>
+            <small class="text-muted">MPa</small>
+          </div>
+        </div>
+        <div class="col-6">
+          <div class="text-center p-2 bg-light rounded">
+            <small class="text-muted d-block">Entangled</small>
+            <strong>{{ g_entangled|floatformat:2 }}</strong>
+            <small class="text-muted">MPa</small>
+          </div>
+        </div>
+      </div>
+
+      <!-- Weight fractions -->
+      <div class="border-top pt-3">
+        <h6 class="text-muted mb-2">Weight Fractions</h6>
+        <div class="row">
+          <div class="col-sm-4">
+            <span><i>w</i><sub>soluble</sub> =
+              <span class="badge bg-secondary">
+                {{ w_soluble|floatformat:2 }}
+              </span>
+            </span>
+          </div>
+          <div class="col-sm-4">
+            <span><i>w</i><sub>dangling</sub> =
+              <span class="badge bg-secondary">
+                {{ w_dangling|floatformat:2 }}
+              </span></span>
+          </div>
+          <div class="col-sm-4">
+            <span><i>w</i><sub>backbone</sub> =
+              <span class="badge bg-secondary">
+                {{ w_backbone|floatformat:2 }}
+              </span></span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>

@@ -37,6 +37,7 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "pylimerpredictor",
 ]
 
 MIDDLEWARE = [
@@ -121,3 +122,17 @@ STATIC_URL = "static/"
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+# Custom user model
+AUTH_USER_MODEL = "pylimerpredictor.User"
+
+# Authentication settings
+LOGIN_URL = "/accounts/login/"
+LOGIN_REDIRECT_URL = "/"
+LOGOUT_REDIRECT_URL = "/"
+
+# Authentication backends
+AUTHENTICATION_BACKENDS = [
+    'pylimerpredictor.backends.EmailBackend',
+    'django.contrib.auth.backends.ModelBackend',
+]

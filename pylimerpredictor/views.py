@@ -1,12 +1,16 @@
-from django.contrib.auth.decorators import login_required
 from django.shortcuts import render
+
+from .decorators import researcher_required
+from .forms import PolymerPredictionForm
 
 
 def home(request):
-    render(request, "home.html")
+    return render(request, "home.html")
 
 
-@login_required
+@researcher_required
 def prediction(request):
     # render the django template offering the prediction form
-    return render(request, "prediction_form.html")
+    # Only researchers and admins can access prediction functionality
+    form = PolymerPredictionForm()
+    return render(request, "prediction_form.html", {"form": form})

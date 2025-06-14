@@ -8,18 +8,30 @@ from pylimer_tools.calc.miller_macosko_theory import (
     compute_weight_fraction_of_dangling_chains,
     compute_weight_fraction_of_soluble_material,
 )
+from quantityfield.units import ureg
+
+from pylimerpredictor.models.prediction_input import PredictionInput
 
 """
 Shortcut to acquire all data from MMT given some parameters.
 """
 
 
-def predict_mmt_results(
-    r, p, f, ge_1, temperature, density, Mw1, Mw2, MwX, ureg, b2=1.0
-) -> dict:
+def predict_mmt_results(prediction_input: PredictionInput) -> dict:
     """
     Compute MMT data for given parameters.
     """
+    r = prediction_input.stoichiometric_imbalance
+    p = prediction_input.crosslink_conversion
+    f = prediction_input.crosslink_functionality
+    ge_1 = prediction_input.plateau_modulus
+    temperature = prediction_input.temperature
+    density = prediction_input.density
+    Mw1 = prediction_input.n_beads_monofunctional * prediction_input.bead_mass
+    Mw2 = prediction_input.n_beads_bifunctional * prediction_input.bead_mass
+    MwX = prediction_input.n_beads_xlinks * prediction_input.bead_mass
+    b2 = prediction_input.get_b2()
+
     n_chains = 1e7
     n_chains_mono = int((2 * n_chains * (1 - b2)) / b2)
     # require Mw1, Mw2, MwX to have the same units
@@ -70,6 +82,7 @@ def predict_mmt_results(
     data["g_entangled"] = (
         G_MMT_entanglement.to("MPa").magnitude * b2_entanglement_correction
     )
+    data["g_eq"] = data["g_entangled"] + data["g_phantom"]
     data["g_anm"] = g_anm.to("MPa").magnitude
     data["g_pnm"] = g_pnm.to("MPa").magnitude
     functionality_per_type = {1: 2, 2: f, 4: 1}

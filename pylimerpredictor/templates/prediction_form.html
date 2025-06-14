@@ -4,36 +4,93 @@
 Predict Polymer Properties
 {% endblock %}
 
-
 {% block custom_javascript %}
 <script type="text/javascript">
+  // Function to fetch and populate polymer parameters
+  function setupPolymerParameters() {
+    fetch(polymer_params_url)
+      .then(response => response.json())
+      .then(data => {
+        let polymerNameField = document.getElementById("id_polymer_name");
+        if (!polymerNameField) {
+          console.error("Polymer name field not found");
+          return;
+        }
+
+        const previouslyChosenPolymer = polymerNameField.value;
+
+        const allPolymerNames = Object.keys(data);
+        // Change the polymer name field to a select dropdown
+        polymerNameField.outerHTML = `
+          <select id="id_polymer_name" name="polymer_name" class="form-select">
+            ${allPolymerNames.map(name => `<option value="${name}">${name}</option>`).join('')}
+          </select>
+        `;
+        // When the polymer name changes, set the parameters for that polymer
+        polymerNameField = document.getElementById("id_polymer_name");
+        polymerNameField.addEventListener("change", () => {
+          const selectedPolymer = polymerNameField.value;
+          if (data[selectedPolymer]) {
+            for (const key in data[selectedPolymer]) {
+              const field = document.getElementById("id_" + key);
+              if (field) {
+                if (field.type === "checkbox") {
+                  field.checked = data[selectedPolymer][key];
+                } else {
+                  field.value = data[selectedPolymer][key];
+                }
+                field.setAttribute("readonly", true);
+                // field.setAttribute("disabled", "disabled");
+              }
+            }
+          } else {
+            console.error("Selected polymer data not found");
+          }
+        });
+        // Set the previously chosen polymer if it exists
+        polymerNameField.value = previouslyChosenPolymer || allPolymerNames[0];
+        // Trigger the change event to set initial values
+        polymerNameField.dispatchEvent(new Event("change"));
+      })
+      .catch(error => console.error("Error fetching polymer parameters:", error));
+  }
+
+  // Function to reset the limits of the crosslink conversion field based on other parameters
+  // This function is called when the relevant fields change
   function resetLimitsOfP() {
-    const r = document.getElementById("stoichiometric_imbalance").value;
-    const f = document.getElementById("crosslink_functionality").value;
-    const n_bifunctional_chains = document.getElementById("n_bifunctional_chains").value;
-    const n_monofunctional_chains = document.getElementById("n_monofunctional_chains").value;
+    const r = document.getElementById("id_stoichiometric_imbalance").valueAsNumber;
+    const f = document.getElementById("id_crosslink_functionality").valueAsNumber;
+    const n_bifunctional_chains = document.getElementById("id_n_bifunctional_chains").valueAsNumber;
+    const n_monofunctional_chains = document.getElementById("id_n_monofunctional_chains").valueAsNumber;
 
     const b2 = (2 * n_bifunctional_chains) / (
-      2 * n_bifunctional_chains + n_monofunctional_chains
+      (2 * n_bifunctional_chains) + n_monofunctional_chains
     );
 
     const pgel = Math.sqrt(1 / (r * (f - 1) * b2));
 
-    const p = document.getElementById("crosslink_conversion");
-    p.setAttribute(
-      "min", pgel
-    );
+    const p = document.getElementById("id_crosslink_conversion");
+    const step = parseFloat(p.step) || 0.01; // Default to 0.01 if step is not set
 
-    const n_xlinks = r * 2 * b2 / f;
-    const max_possible_bonds = Math.min(2, f * n_xlinks);
+    // Round pgel up to the nearest step value
+    const pgel_rounded = Math.ceil(pgel / step) * step;
+    p.setAttribute("min", pgel_rounded);
+
+    const n_xlinks = (
+      n_bifunctional_chains * 2 + n_monofunctional_chains
+    ) * r / f;
+    const max_possible_bonds = n_bifunctional_chains * 2 + n_monofunctional_chains;
     const p_max = max_possible_bonds / (n_xlinks * f);
 
-    p.setAttribute(
-      "max", p_max
-    );
+    // Round p_max down to the nearest step value
+    const p_max_rounded = Math.floor(p_max / step) * step;
+    p.setAttribute("max", p_max_rounded);
   }
 
   window.addEventListener("load", () => {
+    setupPolymerParameters();
+
+    // reset the limits of the maximum crosslink conversion when things change
     const resetters = [
       "stoichiometric_imbalance",
       "crosslink_functionality",
@@ -41,52 +98,111 @@ Predict Polymer Properties
       "n_monofunctional_chains",
     ];
     resetters.forEach((resetter) => {
-      document.getElementById(resetter).addEventListener("change", resetLimitsOfP);
+      document.getElementById("id_" + resetter).addEventListener("change", resetLimitsOfP);
+    });
+    resetLimitsOfP();
+
+    // reset the maximum cross-link functionality when the number of beads for crosslinks changes
+    document.getElementById("id_n_beads_xlinks").addEventListener("change", () => {
+      const max_f_field = document.getElementById("id_crosslink_functionality");
+      max_f_field.setAttribute("max", Math.max(6, document.getElementById("id_n_beads_xlinks").value * 6));
     });
 
-    // add event listeners to actually make and load the predictions
-    const predictForm = document.getElementById("prediction-input");
-    predictForm.querySelectorAll("input").forEach((input) => {
-      input.addEventListener("change", () => {
-        if (!document.getElementById("prediction-output").classList.contains("not-current")) {
-          document.getElementById("prediction-output").classList.add("not-current");
-        }
-      })
+    // form handling
+    const predictForm = document.getElementById("prediction-form");
+
+    // mark as not-current when any field changes
+    predictForm.querySelectorAll("input, select").forEach((field) => {
+      field.addEventListener("change", () => {
+        const resultsDivs = document.querySelectorAll("#prediction-output > div");
+        resultsDivs.forEach((div) => {
+          div.classList.add("not-current");
+        });
+      });
     });
+
+    // handling form submission
     predictForm.addEventListener("submit", (event) => {
       event.preventDefault();
-      predictForm.classList.remove("not-current");
-      // assemble the form values into one json to submit
-      let predictionInput = {};
-      predictForm.querySelectorAll("input").forEach((input) => {
-        predictionInput[input.name] = input.value;
+
+      // Get form data using FormData API
+      const formData = new FormData(predictForm);
+      const predictionInput = Object.fromEntries(formData);
+
+      // convert numeric fields to numbers
+      const numericFields = predictForm.querySelectorAll("input[type='number']");
+      numericFields.forEach((field) => {
+        const fieldName = field.name;
+        predictionInput[fieldName] = field.valueAsNumber || parseFloat(field.value) || 0;
       });
-      // make predictions by calling our api endpoints by posing the JSON
+
+      // convert boolean fields to true/false
+      const booleanFields = predictForm.querySelectorAll("input[type='checkbox']");
+      booleanFields.forEach((field) => {
+        const fieldName = field.name;
+        predictionInput[fieldName] = field.checked;
+      });
+
+      // Make predictions
       const divIdToUrl = {
         "mmt-results": mmt_url,
         "nn-results": nn_url,
         "ant-results": ant_url,
+        "nma-results": nma_url,
       };
 
       for (const id in divIdToUrl) {
-        document.getElementById(id).innerHTML = "<p>Computing...</p>";
-        const url = divIdToUrl[id];
-        const promise = await fetch(url, {
+        const resultElement = document.getElementById(id);
+        resultElement.innerHTML = "<p>Computing...</p>";
+        resultElement.classList.remove("not-current");
+        fetch(divIdToUrl[id], {
           method: 'POST',
           headers: {
-            'Accept': 'html/text',
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            'X-CSRFToken': predictForm.querySelector('[name=csrfmiddlewaretoken]').value
           },
           body: JSON.stringify(predictionInput)
-        });
-        promise.then(result => {
-          result.text()
-        }).then((resultText) => {
-          document.getElementById(id).innerHTML = resultText;
-        });
+        })
+          .then(response => response.text())
+          .then(resultText => {
+            resultElement.innerHTML = resultText;
+            // run the scripts in the result element sequentially
+            const scriptTags = resultElement.querySelectorAll("script");
+
+            // Function to execute scripts sequentially
+            async function executeScripts() {
+              for (const scriptTag of scriptTags) {
+                if (scriptTag.src) {
+                  // External script - create new script and wait for load
+                  await new Promise((resolve, reject) => {
+                    const newScript = document.createElement("script");
+                    newScript.src = scriptTag.src;
+                    newScript.onload = resolve;
+                    newScript.onerror = reject;
+                    // Copy other attributes if present
+                    Array.from(scriptTag.attributes).forEach(attr => {
+                      if (attr.name !== 'src') {
+                        newScript.setAttribute(attr.name, attr.value);
+                      }
+                    });
+                    document.head.appendChild(newScript);
+                  });
+                } else {
+                  // Inline script - wrap in IIFE to prevent variable redeclaration errors
+                  const newScript = document.createElement("script");
+                  newScript.textContent = `(function() { ${scriptTag.textContent} })();`;
+                  resultElement.appendChild(newScript);
+                }
+              }
+            }
+
+            executeScripts().catch(error => {
+              console.error("Error executing scripts:", error);
+            });
+          });
       }
 
-      return false;
+      return false; // Prevent default form submission
     });
   });
 </script>
@@ -94,81 +210,137 @@ Predict Polymer Properties
   var mmt_url = "{% url "mmt_prediction" %}";
   var nn_url = "{% url "nn_prediction" %}";
   var ant_url = "{% url "ant_prediction" %}";
+  var nma_url = "{% url "nma_prediction" %}";
+  var polymer_params_url = "{% url "polymer_parameters" %}";
 </script>
 {% endblock %}
 
 {% block content %}
 <div class="container">
   <div class="row">
-    <div class="column">
+    <div class="column col-sm-6">
       <h2>Input</h2>
-      <form id="prediction-input">
-        <label for="polymer">Polymer:</label>
-        <input class="form-control disabled" type="text" id="polymer" name="polymer" required value="PDMS">
+      <form id="prediction-form" method="post">
+        {% csrf_token %}
 
-        <label for="temperature">Temperature [K]:</label>
-        <input class="form-control" type="number" id="temperature" name="temperature" required value="293.15" min="0"
-          disabled>
+        <section>
+          <h3>Polymer Properties</h3>
+          {{ form.polymer_name.label_tag }}
+          {{ form.polymer_name }}
 
-        <label for="density">Density [kg/cm^3]:</label>
-        <input class="form-control" type="number" id="density" name="density" required min="0" disabled value="0.965">
+          <details>
+            <summary>Details</summary>
+            {{ form.temperature.label_tag }}
+            {{ form.temperature }}
 
-        <label for="plateau_modulus">Entanglement modulus <i>G</i><sub>e</sub>(1) [MPa]</label>
-        <input class="form-control" type="number" id="plateau_modulus" name="plateau_modulus" required min="0" disabled
-          value="0.2">
+            {{ form.density.label_tag }}
+            {{ form.density }}
 
-        <label for="bead_mass">Bead mass [kg/mol]</label>
-        <input class="form-control" type="number" id="bead_mass" name="bead_mass" required min="0" disabled
-          value="0.262525018">
+            {{ form.plateau_modulus.label_tag }}
+            {{ form.plateau_modulus }}
 
-        <label for="mean_squared_bead_distance">Mean squared bead distance <i>&lt;b<sup>2</sup>&gt;</i>
-          [nm<sup>2</sup>]</label>
-        <input class="form-control" type="number" id="mean_squared_bead_distance" name="mean_squared_bead_distance"
-          required min="0" disabled value="1.10700879">
+            {{ form.bead_mass.label_tag }}
+            {{ form.bead_mass }}
 
-        <label for="stoichiometric_imbalance">Stoichiometric imbalance <i>r</i>:</label>
-        <input class="form-control" type="number" id="stoichiometric_imbalance" name="stoichiometric_imbalance" required
-          min="0" max="1" step="0.01">
+            {{ form.mean_squared_bead_distance.label_tag }}
+            {{ form.mean_squared_bead_distance }}
 
-        <label for="crosslink_functionality">Cross-link functionality <i>f</i>:</label>
-        <input class="form-control" type="number" id="crosslink_functionality" name="crosslink_functionality" required
-          min="3" max="6" step="1">
+            {{ form.entanglement_sampling_cutoff.label_tag }}
+            {{ form.entanglement_sampling_cutoff }}
+          </details>
+        </section>
 
-        <label for="crosslink_conversion">Cross-link conversion <i>p</i>:</label>
-        <input class="form-control" type="number" id="crosslink_conversion" name="crosslink_conversion" required min="0"
-          max="1" step="0.01">
+        <hr />
 
-        <label for="n_bifunctional_chains">Number of bifunctional chains:</label>
-        <input class="form-control" type="number" id="n_bifunctional_chains" name="n_bifunctional_chains" required
-          min="0" max="10000">
+        <section>
+          <h3>Network Parameters</h3>
+          {{ form.stoichiometric_imbalance.label_tag }}
+          {{ form.stoichiometric_imbalance }}
 
-        <label for="n_monofunctional_chains">Number of monofunctional chains:</label>
-        <input class="form-control" type="number" id="n_monofunctional_chains" name="n_monofunctional_chains" required
-          min="0" max="10000">
+          {{ form.crosslink_functionality.label_tag }}
+          {{ form.crosslink_functionality }}
 
-        <label for="n_beads_bifunctional">Number of beads in bifunctional chains:</label>
-        <input class="form-control" type="number" id="n_beads_bifunctional" name="n_beads_bifunctional" required min="1"
-          max="500" step="1">
+          {{ form.crosslink_conversion.label_tag }}
+          {{ form.crosslink_conversion }}
 
-        <label for="n_beads_monofunctional">Number of beads in monofunctional chains:</label>
-        <input class="form-control" type="number" id="n_beads_monofunctional" name="n_beads_monofunctional" required
-          min="1" max="500" step="1">
+          {{ form.n_bifunctional_chains.label_tag }}
+          {{ form.n_bifunctional_chains }}
 
-        <input class="button button-primary" type="submit" value="Predict">
+          {{ form.n_monofunctional_chains.label_tag }}
+          {{ form.n_monofunctional_chains }}
+
+          {{ form.n_zerofunctional_chains.label_tag }}
+          {{ form.n_zerofunctional_chains }}
+
+          {{ form.n_beads_bifunctional.label_tag }}
+          {{ form.n_beads_bifunctional }}
+
+          {{ form.n_beads_monofunctional.label_tag }}
+          {{ form.n_beads_monofunctional }}
+
+          {{ form.n_beads_zerofunctional.label_tag }}
+          {{ form.n_beads_zerofunctional }}
+
+          {{ form.n_beads_xlinks.label_tag }}
+          {{ form.n_beads_xlinks }}
+        </section>
+
+        <hr />
+
+        <section>
+          <h3>Additional Synthesis Parameters</h3>
+          <div class="form-check">
+            {{ form.extract_solvent_before_measurement }}
+            {{ form.extract_solvent_before_measurement.label_tag }}
+          </div>
+
+          <div class="form-check">
+            {{ form.disable_primary_loops }}
+            {{ form.disable_primary_loops.label_tag }}
+          </div>
+
+          <div class="form-check">
+            {{ form.disable_secondary_loops }}
+            {{ form.disable_secondary_loops.label_tag }}
+          </div>
+
+          <div class="form-check">
+            {{ form.functionalize_discrete }}
+            {{ form.functionalize_discrete.label_tag }}
+          </div>
+        </section>
+
+        <hr />
+
+        <section>
+          {{ form.description.label_tag }}
+          {{ form.description }}
+        </section>
+
+        <hr />
+        <button type="submit" class="button button-primary btn btn-primary btn-lg">Predict</button>
       </form>
     </div>
 
-    <div class="column">
+    <div class="column col-12 col-sm-6">
       <h2>Prediction</h2>
-      <div id="prediction-output" class="not-current">
-        <div id="mmt-results"></div>
-        <div id="nn-results"></div>
-        <div id="ant-results"></div>
+      <p>
+        Choose parameters and click on "Predict".
+      </p>
+      <p>
+        Please note that the predictions are based on models and may not be accurate for all polymer systems and
+        parameter combinations.
+        Trust on your own risk.
+      </p>
+
+      <div id="prediction-output" class="d-flex flex-column gap-3">
+        <div id="ant-results" class="not-current">
+        </div>
+        <div id="mmt-results" class="not-current"></div>
+        <div id="nn-results" class="not-current"></div>
+        <div id="nma-results" class="not-current"></div>
       </div>
     </div>
-
   </div>
-
 </div>
-
 {% endblock %}

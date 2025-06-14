@@ -1,0 +1,191 @@
+<div class="prediction">
+  <div class="card">
+    <div class="card-header">
+      <h5 class="card-title mb-0">Normal Mode Analysis</h5>
+    </div>
+    <div class="card-body">
+      <!-- Controls Section -->
+      <div class="row mb-4">
+        <div class="col-md-12">
+          <h6>Scaling Factors</h6>
+          <div class="row">
+            <div class="col-6">
+              <label for="xScaling" class="form-label">X-Axis Scale:</label>
+              <input type="number" class="form-control" id="xScaling" value="1" step="0.1" min="0.1">
+            </div>
+            <div class="col-6">
+              <label for="yScaling" class="form-label">Y-Axis Scale:</label>
+              <input type="number" class="form-control" id="yScaling" value="1" step="0.1" min="0.1">
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="row mb-4">
+        <div class="col-md-12">
+          <h6>Axis Limits</h6>
+          <div class="row">
+            <div class="col-3">
+              <label for="xMin" class="form-label">X Min:</label>
+              <input type="number" class="form-control" id="xMin" step="any">
+            </div>
+            <div class="col-3">
+              <label for="xMax" class="form-label">X Max:</label>
+              <input type="number" class="form-control" id="xMax" step="any">
+            </div>
+            <div class="col-3">
+              <label for="yMin" class="form-label">Y Min:</label>
+              <input type="number" class="form-control" id="yMin" step="any">
+            </div>
+            <div class="col-3">
+              <label for="yMax" class="form-label">Y Max:</label>
+              <input type="number" class="form-control" id="yMax" step="any">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="row mb-3">
+        <div class="col">
+          <button type="button" class="btn btn-primary" id="updatePlot">Update Plot</button>
+          <button type="button" class="btn btn-secondary" id="resetLimits">Reset Limits</button>
+        </div>
+      </div>
+
+      <!-- Chart Container -->
+      <div class="chart-container" style="position: relative; height: 500px;">
+        <canvas id="anmChart"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+  // Data from Django template
+  const data = JSON.parse('{{ json_data | safe }}');
+  const frequencies = data.frequencies;
+  const storageModulus = data.storage_modulus;
+  const lossModulus = data.loss_modulus;
+
+  const storageModulusData = storageModulus.map((value, index) => ({ x: frequencies[index], y: value }));
+  const lossModulusData = lossModulus.map((value, index) => ({ x: frequencies[index], y: value }));
+
+  let chart;
+
+  function initChart() {
+    console.log('Initializing ANM Chart with data:', {
+      frequencies,
+      storageModulus,
+      lossModulus
+    });
+    // Initialize the chart
+    const ctx = document.getElementById('anmChart').getContext('2d');
+
+    chart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        datasets: [{
+          label: 'Storage Modulus',
+          data: storageModulusData,
+          // borderColor: 'rgb(75, 192, 192)',
+          // backgroundColor: 'rgba(75, 192, 192, 0.2)',
+          // fill: false
+          backgroundColor: "#1f77b4",
+          borderColor: "#1f77b4"
+        }, {
+          label: 'Loss Modulus',
+          data: lossModulusData,
+          // borderColor: 'rgb(255, 99, 132)',
+          // backgroundColor: 'rgba(255, 99, 132, 0.2)',
+          // fill: false
+          backgroundColor: "#ff7f0e",
+          borderColor: "#ff7f0e"
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          x: {
+            type: 'logarithmic',
+            position: 'bottom',
+            title: {
+              display: true,
+              text: 'Frequency'
+            }
+          },
+          y: {
+            type: 'logarithmic',
+            title: {
+              display: true,
+              text: 'Modulus'
+            }
+          }
+        },
+        plugins: {
+          legend: {
+            display: true
+          }
+        }
+      }
+    });
+
+    resetLimits();
+  }
+
+  function updatePlot() {
+    const xScale = parseFloat(document.getElementById('xScaling').value) || 1;
+    const yScale = parseFloat(document.getElementById('yScaling').value) || 1;
+
+    const xMin = document.getElementById('xMin').value;
+    const xMax = document.getElementById('xMax').value;
+    const yMin = document.getElementById('yMin').value;
+    const yMax = document.getElementById('yMax').value;
+
+    // Apply scaling and create data points
+    const scaledFreq = frequencies.map(f => f * xScale);
+    const scaledStorage = storageModulus.map(s => s * yScale);
+    const scaledLoss = lossModulus.map(l => l * yScale);
+
+    chart.data.datasets[0].data = scaledFreq.map((x, i) => ({ x: x, y: scaledStorage[i] }));
+    chart.data.datasets[1].data = scaledFreq.map((x, i) => ({ x: x, y: scaledLoss[i] }));
+
+    // Update axis limits if specified
+    if (xMin !== '') chart.options.scales.x.min = parseFloat(xMin);
+    else delete chart.options.scales.x.min;
+
+    if (xMax !== '') chart.options.scales.x.max = parseFloat(xMax);
+    else delete chart.options.scales.x.max;
+
+    if (yMin !== '') chart.options.scales.y.min = parseFloat(yMin);
+    else delete chart.options.scales.y.min;
+
+    if (yMax !== '') chart.options.scales.y.max = parseFloat(yMax);
+    else delete chart.options.scales.y.max;
+
+    chart.update();
+  }
+
+  function resetLimits() {
+    // Calculate min/max values from the dataset
+    const xMin = Math.min(...frequencies);
+    const xMax = Math.max(...frequencies);
+    const yMin = Math.min(...storageModulus, ...lossModulus);
+    const yMax = Math.max(...storageModulus, ...lossModulus);
+
+    document.getElementById('xMin').value = xMin.toString();
+    document.getElementById('xMax').value = xMax.toString();
+    document.getElementById('yMin').value = yMin.toString();
+    document.getElementById('yMax').value = yMax.toString();
+    document.getElementById('xScaling').value = '1';
+    document.getElementById('yScaling').value = '1';
+    updatePlot();
+  }
+
+  // Event listeners
+  document.getElementById('updatePlot').addEventListener('click', updatePlot);
+  document.getElementById('resetLimits').addEventListener('click', resetLimits);
+
+  // Initialize chart when page loads
+  initChart();
+</script>

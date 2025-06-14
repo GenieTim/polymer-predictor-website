@@ -5,25 +5,44 @@ import math
 import time
 
 import numpy as np
+from pylimer_doctorate_utils.pdms_parameter_provider import Parameters
 from pylimer_tools.calc.structure_analysis import compute_crosslinker_conversion
 from pylimer_tools_cpp import (
-    LinkSwappingMode,
-    MEHPForceBalance,
-    MEHPForceRelaxation,
+    MEHPForceBalance2,
     MoleculeType,
     StructureSimplificationMode,
     Universe,
     version_information,
 )
-from pylimer_doctorate_utils.pdms_parameter_provider import Parameters
-
-from pylimerpredictor.models.prediction_input import PredictionInput
-from .generate_mc_structure import generate_structure
 from quantityfield.units import ureg
 
+from pylimerpredictor.models.prediction_input import PredictionInput
+
+from .generate_mc_structure import generate_structure
 
 crosslink_type = 2
 same_strand_cutoff = 0.0
+
+
+def prediction_input_to_parameters(prediction_input: PredictionInput) -> Parameters:
+    """
+    Convert PredictionInput to Parameters object.
+    """
+    return Parameters(
+        {
+            "R02": prediction_input.mean_squared_bead_distance,
+            "Mw": prediction_input.bead_mass,
+            "<b>": prediction_input.get_mean_bead_distance(),
+            "<b^2>": prediction_input.mean_squared_bead_distance,
+            "rho": prediction_input.density,
+            "Ge": prediction_input.plateau_modulus,
+            "T": prediction_input.temperature,
+            "distance_units": 1 * ureg("nm"),
+            "kb": 1.380649e-23 * ureg.joule / ureg.kelvin,
+        },
+        ureg,
+        prediction_input.polymer_name,
+    )
 
 
 def predict_ant_results(prediction_input: PredictionInput) -> dict:
@@ -31,24 +50,27 @@ def predict_ant_results(prediction_input: PredictionInput) -> dict:
     Compute ANT data for given parameters.
     """
     universe = generate_structure(
-        n_beads_per_chain=prediction_input.n_beads_bifunctional,
-        n_chains=prediction_input.n_bifunctional_chains,
+        params=prediction_input_to_parameters(prediction_input),
+        n_beads_per_chain_1=prediction_input.n_beads_bifunctional,
+        n_chains_1=prediction_input.n_bifunctional_chains,
         n_mono_beads_per_chain=prediction_input.n_beads_monofunctional,
         n_mono_chains=prediction_input.n_monofunctional_chains,
         target_f=prediction_input.crosslink_functionality,
-        target_r=prediction_input.stoichiometric_imbalance,
         target_p=prediction_input.crosslink_conversion,
-        disable_primary_loops=False,
-        disable_secondary_loops=False,
-        bead_density=prediction_input.get_bead_density().to("nm^3").magnitude,
-        mean_squared_bead_distance=prediction_input.mean_squared_bead_distance.to(
-            "nm^2"
-        ).magnitude,
+        n_solvent_chains=prediction_input.n_zerofunctional_chains,
+        n_beads_per_solvent_chain=prediction_input.n_beads_zerofunctional,
+        n_beads_per_xlink=prediction_input.n_beads_xlinks,
+        remove_wsol=prediction_input.extract_solvent_before_measurement,
+        disable_primary_loops=prediction_input.disable_primary_loops,
+        disable_secondary_loops=prediction_input.disable_secondary_loops,
+        functionalize_discrete=prediction_input.functionalize_discrete,
+        n_chains_crosslinks=prediction_input.get_n_chains_crosslinks(),
     )
 
     results = analyse_universe(universe, prediction_input=prediction_input)
     results["g_ant"] = results["G [MPa] from gamma Mean, Entangled FB No Slipping"]
     results["g_phantom"] = results["Phantom, Force Balance, G_ANT [MPa]"]
+    results["g_entangled"] = results["g_ant"] - results["g_phantom"]
     results["w_soluble"] = results["soluble_fraction Mean, Entangled FB No Slipping"]
     results["w_dangling"] = results["dangling_fraction Mean, Entangled FB No Slipping"]
     results["w_backbone"] = 1.0 - results["w_soluble"] - results["w_dangling"]
@@ -60,25 +82,13 @@ def analyse_universe(universe: Universe, prediction_input: PredictionInput) -> d
     Runs force relaxation and force balance on a given structure.
     """
     # shortcuts
-    ge_1 = prediction_input.ge_1
+    ge_1 = prediction_input.plateau_modulus
     f = prediction_input.crosslink_functionality
     # prepare conversion factors
     r02_slope = prediction_input.mean_squared_bead_distance
     r02_slope_magnitude = r02_slope.to("nm^2").magnitude
 
-    parameters = Parameters(
-        {
-            "R02": prediction_input.mean_squared_bead_distance,
-            "Mw": prediction_input.bead_mass,
-            "<b>": prediction_input.get_mean_bead_distance(),
-            "<b^2>": prediction_input.mean_squared_bead_distance,
-            "T": prediction_input.temperature,
-            "kb": 1.380649e-23 * ureg.joule / ureg.kelvin,
-            "distance_units": 1 * ureg.nanometer,
-        },
-        ureg,
-        prediction_input.description,
-    )
+    parameters = prediction_input_to_parameters(prediction_input)
     kbt = prediction_input.temperature * parameters.get("kb")
     gamma_conversion_factor = (
         (kbt / ((parameters.get("distance_units")) ** 3)).to("MPa").magnitude
@@ -86,7 +96,7 @@ def analyse_universe(universe: Universe, prediction_input: PredictionInput) -> d
     stress_conversion = parameters.get_fb_stress_conversion()
 
     entanglement_density = parameters.get_entanglement_density(ge_1)
-    sampling_cutoff = 2.5 * ureg("nm")
+    sampling_cutoff = prediction_input.entanglement_sampling_cutoff
 
     start_time = time.time()
     molecules = universe.get_molecules(crosslink_type)
@@ -210,11 +220,9 @@ def analyse_universe(universe: Universe, prediction_input: PredictionInput) -> d
     # )
 
     # Run force balance in phantom mode
-    force_balance_phantom = MEHPForceBalance(universe, crosslinker_type=crosslink_type)
-    force_balance_phantom.config_assume_box_large_enough(False)
+    force_balance_phantom = MEHPForceBalance2(universe, crosslinker_type=crosslink_type)
     force_balance_phantom.run_force_relaxation(
         simplification_mode=StructureSimplificationMode.ALL_TIM,
-        disable_slipping=True,
     )
     universe_data["Phantom, Force Balance, G_ANT [MPa]"] = (
         gamma_conversion_factor
@@ -251,6 +259,11 @@ def analyse_universe(universe: Universe, prediction_input: PredictionInput) -> d
 
     # Run force balance with entanglements
     n_entanglements = entanglement_density * universe.get_volume()
+    print(
+        "Running force balance with entanglements, sampling {} entanglements in a V = {} with density = {}.".format(
+            n_entanglements, universe.get_volume(), entanglement_density
+        )
+    )
 
     meanable_values = {}
     meanable_funs = {
@@ -269,9 +282,7 @@ def analyse_universe(universe: Universe, prediction_input: PredictionInput) -> d
         ),
         "n_springs": lambda fb: fb.get_nr_of_springs(),
         "n_active_nodes": lambda fb: fb.get_nr_of_active_nodes(),
-        "displacement_residual_norm": lambda fb: fb.get_displacement_residual_norm(
-            -1.0
-        ),
+        "displacement_residual_norm": lambda fb: fb.get_displacement_residual_norm(),
         "G [MPa] from gamma": lambda fb: (
             gamma_conversion_factor
             * np.sum(fb.get_gamma_factors(r02_slope_magnitude))
@@ -298,9 +309,9 @@ def analyse_universe(universe: Universe, prediction_input: PredictionInput) -> d
         meanable_values[key] = []
 
     for _ in range(3):
-        force_balance_base = MEHPForceBalance.construct_with_random_sliplinks(
+        force_balance_base = MEHPForceBalance2(
             universe,
-            nr_of_sliplinks_to_sample=int(n_entanglements),
+            nr_of_entanglements_to_sample=int(n_entanglements),
             minimum_nr_of_sliplinks=int(math.floor(n_entanglements * 0.95)),
             crosslinker_type=crosslink_type,
             is_2d=False,
@@ -312,27 +323,11 @@ def analyse_universe(universe: Universe, prediction_input: PredictionInput) -> d
             seed="",
         )
 
-        force_balance_base.config_assume_box_large_enough(False)
         assert force_balance_base.validate_network()
         print("Network valid before starting relaxation.")
 
-        initial_residual = force_balance_base.get_displacement_residual_norm(-1.0)
         force_balance_base.run_force_relaxation(
-            max_nr_of_steps=50000,
-            x_tolerance=(1e-8),
-            initial_residual_norm=initial_residual,
-            one_over_spring_partition_upper_limit=1.0,
-            simplification_mode=StructureSimplificationMode.NO_SIMPLIFICATION,
-            disable_slipping=True,
-        )
-        force_balance_base.run_force_relaxation(
-            max_nr_of_steps=50000,
-            x_tolerance=1e-13,
-            initial_residual_norm=initial_residual,
-            simplification_mode=StructureSimplificationMode.ALL_TIM,
-            allow_sliplinks_to_pass_each_other=LinkSwappingMode.NO_SWAPPING,
-            one_over_spring_partition_upper_limit=-1.0,
-            disable_slipping=True,
+            simplification_mode=StructureSimplificationMode.ALL_TIM
         )
 
         for key in meanable_funs.keys():
