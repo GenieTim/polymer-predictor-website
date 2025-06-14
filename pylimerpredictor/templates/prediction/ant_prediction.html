@@ -6,7 +6,13 @@
     <div class="card-body">
       <!-- Primary result -->
       <div class="text-center p-3 bg-success text-white rounded mb-3">
-        <h3 class="mb-0"><i>G</i><sub>eq</sub> = {{ g_ant|floatformat:2 }} MPa</h3>
+        <h3 class="mb-0">
+          <i>G</i><sub>eq</sub> = {{ g_ant|floatformat:2 }}
+          {% if g_ant_error %}
+          <span class="text-danger error">± {{ g_ant_error|floatformat:2 }}</span>
+          {% endif %}
+          <span class="unit">MPa</span>
+        </h3>
       </div>
 
       <!-- Detailed breakdown -->
@@ -15,14 +21,20 @@
           <div class="text-center p-2 bg-light rounded">
             <small class="text-muted d-block">Phantom</small>
             <strong>{{ g_phantom|floatformat:2 }}</strong>
-            <small class="text-muted">MPa</small>
+            {% if g_phantom_error %}
+            <span class="text-danger error">± {{ g_phantom_error|floatformat:2 }}</span>
+            {% endif %}
+            <small class="text-muted unit">MPa</small>
           </div>
         </div>
         <div class="col-6">
           <div class="text-center p-2 bg-light rounded">
             <small class="text-muted d-block">Entangled</small>
             <strong>{{ g_entangled|floatformat:2 }}</strong>
-            <small class="text-muted">MPa</small>
+            {% if g_entangled_error %}
+            <span class="text-danger error">± {{ g_entangled_error|floatformat:2 }}</span>
+            {% endif %}
+            <small class="text-muted unit">MPa</small>
           </div>
         </div>
       </div>

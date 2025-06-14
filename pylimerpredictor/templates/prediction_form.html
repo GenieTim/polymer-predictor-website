@@ -55,17 +55,28 @@ Predict Polymer Properties
       .catch(error => console.error("Error fetching polymer parameters:", error));
   }
 
+  // Function to calculate chain numbers from b2 molar fraction
+  function calculateChainNumbers() {
+    const b2_fraction = document.getElementById("id_b2_molar_fraction").valueAsNumber || 1.0;
+    const total_chains = 10000; // Total number of chains (1e4)
+
+    // Calculate number of chains based on b2 molar fraction
+    // b2 = (2 * n_bifunctional) / (2 * n_bifunctional + n_monofunctional)
+    // Solving for n_bifunctional and n_monofunctional with total_chains constraint
+    const n_bifunctional_chains = Math.round((b2_fraction * total_chains) / (2 - b2_fraction));
+    const n_monofunctional_chains = total_chains - n_bifunctional_chains;
+
+    return { n_bifunctional_chains, n_monofunctional_chains };
+  }
+
   // Function to reset the limits of the crosslink conversion field based on other parameters
   // This function is called when the relevant fields change
   function resetLimitsOfP() {
     const r = document.getElementById("id_stoichiometric_imbalance").valueAsNumber;
     const f = document.getElementById("id_crosslink_functionality").valueAsNumber;
-    const n_bifunctional_chains = document.getElementById("id_n_bifunctional_chains").valueAsNumber;
-    const n_monofunctional_chains = document.getElementById("id_n_monofunctional_chains").valueAsNumber;
+    const { n_bifunctional_chains, n_monofunctional_chains } = calculateChainNumbers();
 
-    const b2 = (2 * n_bifunctional_chains) / (
-      (2 * n_bifunctional_chains) + n_monofunctional_chains
-    );
+    const b2 = document.getElementById("id_b2_molar_fraction").valueAsNumber;
 
     const pgel = Math.sqrt(1 / (r * (f - 1) * b2));
 
@@ -94,18 +105,21 @@ Predict Polymer Properties
     const resetters = [
       "stoichiometric_imbalance",
       "crosslink_functionality",
-      "n_bifunctional_chains",
-      "n_monofunctional_chains",
+      "b2_molar_fraction",
     ];
     resetters.forEach((resetter) => {
       document.getElementById("id_" + resetter).addEventListener("change", resetLimitsOfP);
     });
     resetLimitsOfP();
 
-    // reset the maximum cross-link functionality when the number of beads for crosslinks changes
-    document.getElementById("id_n_beads_xlinks").addEventListener("change", () => {
+    // reset the maximum cross-link functionality when the molecular weight for crosslinks changes
+    document.getElementById("id_mw_xlinks").addEventListener("change", () => {
+      const bead_mass = document.getElementById("id_bead_mass").valueAsNumber;
+      const mw_xlinks = document.getElementById("id_mw_xlinks").valueAsNumber;
+      const n_beads_xlinks = Math.round(mw_xlinks / bead_mass);
+
       const max_f_field = document.getElementById("id_crosslink_functionality");
-      max_f_field.setAttribute("max", Math.max(6, document.getElementById("id_n_beads_xlinks").value * 6));
+      max_f_field.setAttribute("max", Math.max(6, n_beads_xlinks * 6));
     });
 
     // form handling
@@ -142,6 +156,28 @@ Predict Polymer Properties
         const fieldName = field.name;
         predictionInput[fieldName] = field.checked;
       });
+
+      // Convert molecular weights to bead numbers
+      const bead_mass = predictionInput.bead_mass;
+
+      // Calculate and add bead numbers based on molecular weights
+      predictionInput.n_beads_bifunctional = Math.round(predictionInput.mw_bifunctional / bead_mass);
+      predictionInput.n_beads_monofunctional = Math.round(predictionInput.mw_monofunctional / bead_mass);
+      predictionInput.n_beads_zerofunctional = Math.round(predictionInput.mw_zerofunctional / bead_mass);
+      predictionInput.n_beads_xlinks = Math.round(predictionInput.mw_xlinks / bead_mass);
+
+      // Remove molecular weight fields from the data sent to backend
+      delete predictionInput.mw_bifunctional;
+      delete predictionInput.mw_monofunctional;
+      delete predictionInput.mw_zerofunctional;
+      delete predictionInput.mw_xlinks;
+
+      // Add the number of chains based on b2 molar fraction
+      const { n_bifunctional_chains, n_monofunctional_chains } = calculateChainNumbers();
+      predictionInput.n_bifunctional_chains = n_bifunctional_chains;
+      predictionInput.n_monofunctional_chains = n_monofunctional_chains;
+      predictionInput.n_zerofunctional_chains = parseInt(predictionInput.n_zerofunctional_chains, 10) || 0;
+      delete predictionInput.b2_molar_fraction; // Remove b2 molar fraction as it's not needed for predictions
 
       // Make predictions
       const divIdToUrl = {
@@ -263,26 +299,21 @@ Predict Polymer Properties
           {{ form.crosslink_conversion.label_tag }}
           {{ form.crosslink_conversion }}
 
-          {{ form.n_bifunctional_chains.label_tag }}
-          {{ form.n_bifunctional_chains }}
+          {{ form.b2_molar_fraction.label_tag }}
+          {{ form.b2_molar_fraction }}
 
-          {{ form.n_monofunctional_chains.label_tag }}
-          {{ form.n_monofunctional_chains }}
+          {{ form.mw_bifunctional.label_tag }}
+          {{ form.mw_bifunctional }}
 
-          {{ form.n_zerofunctional_chains.label_tag }}
+          {{ form.mw_monofunctional.label_tag }}
+          {{ form.mw_monofunctional }}
+
+          {{ form.mw_xlinks.label_tag }}
+          {{ form.mw_xlinks }}
+
+          <!-- Hidden fields for zerofunctional chains -->
           {{ form.n_zerofunctional_chains }}
-
-          {{ form.n_beads_bifunctional.label_tag }}
-          {{ form.n_beads_bifunctional }}
-
-          {{ form.n_beads_monofunctional.label_tag }}
-          {{ form.n_beads_monofunctional }}
-
-          {{ form.n_beads_zerofunctional.label_tag }}
-          {{ form.n_beads_zerofunctional }}
-
-          {{ form.n_beads_xlinks.label_tag }}
-          {{ form.n_beads_xlinks }}
+          {{ form.mw_zerofunctional }}
         </section>
 
         <hr />

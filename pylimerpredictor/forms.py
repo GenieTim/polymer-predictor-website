@@ -1,6 +1,7 @@
 from django import forms
 from django.contrib.auth import get_user_model
 from django.contrib.auth.forms import AuthenticationForm, UserCreationForm
+from django.utils.safestring import mark_safe
 
 User = get_user_model()
 
@@ -108,6 +109,8 @@ class UserProfileForm(forms.ModelForm):
 class PolymerPredictionForm(forms.Form):
     label_suffix = ""
 
+    default_mw = 0.262525
+
     # Polymer properties (disabled fields)
     polymer_name = forms.CharField(
         initial="PDMS",
@@ -129,7 +132,7 @@ class PolymerPredictionForm(forms.Form):
         widget=forms.NumberInput(attrs={"class": "form-control", "readonly": True}),
     )
     bead_mass = forms.FloatField(
-        initial=0.262525018,
+        initial=default_mw,
         min_value=0,
         widget=forms.NumberInput(attrs={"class": "form-control", "readonly": True}),
     )
@@ -158,34 +161,26 @@ class PolymerPredictionForm(forms.Form):
         max_value=1,
         widget=forms.NumberInput(attrs={"class": "form-control", "step": "0.01"}),
     )
-    n_bifunctional_chains = forms.IntegerField(
-        initial=1000,
-        min_value=0,
-        max_value=10000,
+    # Replace chain number inputs with b2 fraction
+    b2_molar_fraction = forms.FloatField(
+        initial=1.0,
+        min_value=0.0,
+        max_value=1.0,
+        widget=forms.NumberInput(attrs={"class": "form-control", "step": "0.01"}),
+    )
+    mw_bifunctional = forms.FloatField(
+        initial=30 * default_mw,
+        min_value=0.1,
         widget=forms.NumberInput(attrs={"class": "form-control"}),
     )
-    n_monofunctional_chains = forms.IntegerField(
+    mw_monofunctional = forms.FloatField(
         initial=0,
         min_value=0,
-        max_value=10000,
         widget=forms.NumberInput(attrs={"class": "form-control"}),
     )
-    n_beads_bifunctional = forms.IntegerField(
-        initial=30,
-        min_value=1,
-        max_value=500,
-        widget=forms.NumberInput(attrs={"class": "form-control"}),
-    )
-    n_beads_monofunctional = forms.IntegerField(
-        initial=0,
-        min_value=0,
-        max_value=500,
-        widget=forms.NumberInput(attrs={"class": "form-control"}),
-    )
-    n_beads_xlinks = forms.IntegerField(
-        initial=1,
-        min_value=1,
-        max_value=500,
+    mw_xlinks = forms.FloatField(
+        initial=1 * default_mw,
+        min_value=0.1,
         widget=forms.NumberInput(attrs={"class": "form-control"}),
     )
 
@@ -211,18 +206,17 @@ class PolymerPredictionForm(forms.Form):
         widget=forms.CheckboxInput(attrs={"class": "form-check-input"}),
     )
 
-    # Zero-functional chains
+    # Zero-functional chains (hidden - set to 0)
     n_zerofunctional_chains = forms.IntegerField(
         initial=0,
         min_value=0,
         max_value=10000,
-        widget=forms.NumberInput(attrs={"class": "form-control"}),
+        widget=forms.HiddenInput(),
     )
-    n_beads_zerofunctional = forms.IntegerField(
+    mw_zerofunctional = forms.FloatField(
         initial=0,
         min_value=0,
-        max_value=500,
-        widget=forms.NumberInput(attrs={"class": "form-control"}),
+        widget=forms.HiddenInput(),
     )
 
     # Additional material property
@@ -244,36 +238,76 @@ class PolymerPredictionForm(forms.Form):
         ),
     )
 
+    def make_label_str(self, description: str, symbol: str = "", unit: str = "") -> str:
+        """
+        Create a label string with proper formatting.
+        :param description: Description of the field.
+        :param symbol: Symbol to be included in the label.
+        :param unit: Unit to be included in the label.
+        :return: Formatted label string.
+        """
+        if symbol and unit:
+            return mark_safe(f"<i>{symbol}</i> [{unit}] ({description})")
+        if symbol:
+            return mark_safe(f"<i>{symbol}</i> ({description})")
+        if unit:
+            return mark_safe(f"{description} [{unit}]")
+        return mark_safe(description)
+
     def __init__(self, *args, **kwargs):
         kwargs.setdefault("label_suffix", "")
         super().__init__(*args, **kwargs)
         # Add labels with proper formatting
-        self.fields["temperature"].label = "Temperature [K]"
-        self.fields["density"].label = "Density [kg/cm³]"
-        self.fields["plateau_modulus"].label = "Entanglement modulus Gₑ(1) [MPa]"
-        self.fields["bead_mass"].label = "Bead mass [kg/mol]"
-        self.fields["mean_squared_bead_distance"].label = (
-            "Mean squared bead distance ⟨b²⟩ [nm²]"
+        self.fields["temperature"].label = self.make_label_str("Temperature", "T", "K")
+        self.fields["density"].label = self.make_label_str("Density", "ρ", "kg/cm³")
+        self.fields["plateau_modulus"].label = self.make_label_str(
+            "Entanglement modulus", "G<sub>e</sub>(1)", "MPa"
         )
-        self.fields["stoichiometric_imbalance"].label = "Stoichiometric imbalance r"
-        self.fields["crosslink_functionality"].label = "Cross-link functionality f"
-        self.fields["crosslink_conversion"].label = "Cross-link conversion p"
-        self.fields["n_bifunctional_chains"].label = "Number of bifunctional chains"
-        self.fields["n_monofunctional_chains"].label = "Number of monofunctional chains"
-        self.fields["n_zerofunctional_chains"].label = (
-            "Number of zero-functional chains"
+        self.fields["bead_mass"].label = self.make_label_str(
+            "Bead mass", "M<sub>w</sub>", "kg/mol"
         )
-        self.fields["n_beads_bifunctional"].label = "Beads per bifunctional chain"
-        self.fields["n_beads_monofunctional"].label = "Beads per monofunctional chain"
-        self.fields["n_beads_zerofunctional"].label = "Beads per zero-functional chain"
-        self.fields["n_beads_xlinks"].label = "Beads per cross-link"
-        self.fields["entanglement_sampling_cutoff"].label = (
-            "Entanglement sampling cutoff [nm]"
+        self.fields["mean_squared_bead_distance"].label = self.make_label_str(
+            "Mean squared bead distance", "⟨b<sup>2</sup>⟩", "nm²"
         )
-        self.fields["extract_solvent_before_measurement"].label = (
+        self.fields["stoichiometric_imbalance"].label = self.make_label_str(
+            "Stoichiometric imbalance", "r"
+        )
+        self.fields["crosslink_functionality"].label = self.make_label_str(
+            "Cross-link functionality", "f"
+        )
+        self.fields["crosslink_conversion"].label = self.make_label_str(
+            "Cross-link conversion", "p"
+        )
+        self.fields["b2_molar_fraction"].label = self.make_label_str(
+            "molar fraction of 2×B<sub>2</sub> in B<sub>1</sub> + 2×B<sub>2</sub>",
+            "b<sub>2</sub>",
+        )
+        self.fields["mw_bifunctional"].label = self.make_label_str(
+            "Molecular weight per bifunctional chain",
+            "M<sub>w</sub><sup>B<sub>2</sub></sup>",
+            "kg/mol",
+        )
+        self.fields["mw_monofunctional"].label = self.make_label_str(
+            "Molecular weight per monofunctional chain",
+            "M<sub>w</sub><sup>B<sub>1</sub></sup>",
+            "kg/mol",
+        )
+        self.fields["mw_xlinks"].label = self.make_label_str(
+            "Molecular weight per cross-link", "M<sub>w</sub><sup>X</sup>", "kg/mol"
+        )
+        self.fields["entanglement_sampling_cutoff"].label = self.make_label_str(
+            "Entanglement sampling cutoff", "s<sub>c</sub>", "nm"
+        )
+        self.fields["extract_solvent_before_measurement"].label = self.make_label_str(
             "Extract solvent before measurement"
         )
-        self.fields["disable_primary_loops"].label = "Disable primary loops"
-        self.fields["disable_secondary_loops"].label = "Disable secondary loops"
-        self.fields["functionalize_discrete"].label = "Functionalize discrete"
-        self.fields["description"].label = "Description"
+        self.fields["disable_primary_loops"].label = self.make_label_str(
+            "Disable primary loops"
+        )
+        self.fields["disable_secondary_loops"].label = self.make_label_str(
+            "Disable secondary loops"
+        )
+        self.fields["functionalize_discrete"].label = self.make_label_str(
+            "Functionalize discrete"
+        )
+        self.fields["description"].label = self.make_label_str("Description")
