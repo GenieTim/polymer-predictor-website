@@ -308,7 +308,8 @@ def analyse_universe(universe: Universe, prediction_input: PredictionInput) -> d
     for key in meanable_funs.keys():
         meanable_values[key] = []
 
-    for _ in range(3):
+    # for _ in range(3):
+    for _ in range(1):
         force_balance_base = MEHPForceBalance2(
             universe,
             nr_of_entanglements_to_sample=int(n_entanglements),

@@ -85,7 +85,7 @@ Predict Polymer Properties
 
     // Round pgel up to the nearest step value
     const pgel_rounded = Math.ceil(pgel / step) * step;
-    p.setAttribute("min", pgel_rounded);
+    p.setAttribute("min", pgel_rounded.toFixed(2));
 
     const n_xlinks = (
       n_bifunctional_chains * 2 + n_monofunctional_chains
@@ -94,8 +94,8 @@ Predict Polymer Properties
     const p_max = max_possible_bonds / (n_xlinks * f);
 
     // Round p_max down to the nearest step value
-    const p_max_rounded = Math.floor(p_max / step) * step;
-    p.setAttribute("max", p_max_rounded);
+    const p_max_rounded = Math.min(1., Math.floor(p_max / step) * step);
+    p.setAttribute("max", p_max_rounded.toFixed(2));
   }
 
   window.addEventListener("load", () => {
@@ -365,8 +365,7 @@ Predict Polymer Properties
       </p>
 
       <div id="prediction-output" class="d-flex flex-column gap-3">
-        <div id="ant-results" class="not-current">
-        </div>
+        <div id="ant-results" class="not-current"></div>
         <div id="mmt-results" class="not-current"></div>
         <div id="nn-results" class="not-current"></div>
         <div id="nma-results" class="not-current"></div>

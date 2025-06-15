@@ -5,6 +5,7 @@ namely the PredictionInput class, which they parse,
 and then use to generate a prediction.
 """
 
+import concurrent.futures
 import json
 import logging
 import math
@@ -84,6 +85,12 @@ def prediction_endpoint_mmt(request):
         prediction_input = parse_prediction_input(request.body)
         if prediction_input:
             prediction = predict_mmt_results(prediction_input)
+
+            # add _str keys for formatted values
+            for key, value in list(prediction.items()):
+                if isinstance(value, (int, float, np.number)):
+                    prediction[f"{key}_str"] = format_value(value)
+
             if "application/json" in requested_content_types:
                 return JsonResponse(prediction, status=200)
             return render(
@@ -103,6 +110,12 @@ def prediction_endpoint_nn(request):
         prediction_input = parse_prediction_input(request.body)
         if prediction_input:
             prediction = predict_nn_results(prediction_input)
+
+            # add _str keys for formatted values
+            for key, value in list(prediction.items()):
+                if isinstance(value, (int, float, np.number)):
+                    prediction[f"{key}_str"] = format_value(value)
+
             if "application/json" in requested_content_types:
                 return JsonResponse(prediction, status=200)
             return render(request, "prediction/nn_prediction.html", context=prediction)
@@ -139,13 +152,128 @@ def prediction_endpoint_ant(request):
     if request.method == "POST":
         prediction_input = parse_prediction_input(request.body)
         if prediction_input:
-            prediction = predict_ant_results(prediction_input)
+            # Check if this is a refinement request
+            refinement_level = request.GET.get("refinement", "5")
+            n_runs = min(int(refinement_level), 10)  # Cap at 10 runs
+
+            if n_runs == 1:
+                # Single prediction for fast response
+                prediction = predict_ant_results(prediction_input)
+            else:
+                # Multiple runs for error estimation - run in parallel
+                predictions = run_ant_predictions_parallel(prediction_input, n_runs)
+                # Calculate means and standard deviations
+                prediction = calculate_ant_statistics(predictions)
+
             if "application/json" in requested_content_types:
                 return JsonResponse(prediction, status=200)
             return render(request, "prediction/ant_prediction.html", context=prediction)
         logger.warning("Invalid prediction input data", request.body)
         raise BadRequest("Invalid input")
     raise BadRequest("Only POST method is allowed")
+
+
+def run_ant_predictions_parallel(prediction_input, n_runs):
+    """Run multiple ANT predictions in parallel."""
+    with concurrent.futures.ThreadPoolExecutor(max_workers=min(n_runs, 8)) as executor:
+        # Submit all prediction tasks
+        futures = [
+            executor.submit(predict_ant_results, prediction_input)
+            for _ in range(n_runs)
+        ]
+
+        # Collect results as they complete
+        predictions = []
+        for future in concurrent.futures.as_completed(futures):
+            try:
+                result = future.result()
+                predictions.append(result)
+            except Exception as e:
+                logger.error(f"ANT prediction failed: {e}")
+                # Continue with other predictions even if one fails
+
+        return predictions
+
+
+def format_value(value):
+    """
+    Formats a numerical value with appropriate decimal precision.
+
+    Args:
+        value (float): The numerical value to format.
+
+    Returns:
+        str: A string representation of the value rounded to the appropriate number of decimal places.
+    """
+    if value == 0:
+        return "0.00"  # Special case for zero
+
+    return "{:.3g}".format(value)
+
+
+def format_value_with_error(value, error):
+    """
+    Formats a numerical value and its associated error with appropriate decimal precision.
+
+    The number of decimal places is determined based on the order of magnitude of the error,
+    ensuring both the value and error are displayed with matching precision.
+
+    Args:
+        value (float): The numerical value to format.
+        error (float): The associated error or uncertainty.
+
+    Returns:
+        str: A string representation of the value and error in the format "value ± error",
+             with both numbers rounded to the appropriate number of decimal places.
+
+    Example:
+        >>> format_value_with_error(12.3456, 0.0789)
+        '12.35 ± 0.08'
+    """
+    # Determine the number of decimal places based on the error
+    error_exp = np.floor(np.log10(abs(error)))  # Order of magnitude of the error
+    decimals = max(0, -int(error_exp))  # Determine decimal places to keep
+
+    # Format the number and error with the same decimal precision
+    formatted_value = f"{round(value, decimals):.{decimals}f}"
+    formatted_error = f"{round(error, decimals):.{decimals}f}"
+
+    return f"{formatted_value} ± {formatted_error}"
+
+
+def calculate_ant_statistics(predictions: list):
+    """Calculate mean and standard deviation for ANT predictions."""
+    import numpy as np
+
+    keys = [
+        "g_ant",
+        "g_phantom",
+        "g_entangled",
+        "w_dangling",
+        "w_soluble",
+        "w_backbone",
+    ]
+    if not keys:
+        return {}
+    assert all(key in pred for pred in predictions for key in keys)
+    result = {}
+
+    for key in keys:
+        values = [p[key] for p in predictions]
+        result[key] = np.mean(values)
+        if len(values) > 1:
+            # Calculate standard deviation only if we have more than one prediction
+            result[f"{key}_error"] = np.std(values, ddof=1)
+            # format such that the number of decimals
+            # of mean and error are sensible based on the magnitude of the error
+            result[f"{key}_str"] = format_value_with_error(
+                result[key], result[f"{key}_error"]
+            )
+        else:
+            result[f"{key}_str"] = f"{result[key]:.5f}"
+
+    result["n_runs"] = len(predictions)
+    return result
 
 
 @csrf_exempt
