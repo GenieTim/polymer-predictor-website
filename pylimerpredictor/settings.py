@@ -40,6 +40,7 @@ ALLOWED_HOSTS = [
     "polymer-predictor.ethz.ch",
     "localhost",
     "82.130.69.207",
+    "127.0.0.1",
 ]
 
 CSRF_TRUSTED_ORIGINS = ["https://" + host for host in ALLOWED_HOSTS]
@@ -143,7 +144,7 @@ if PRODUCTION:
     # Use a secure session cookie in production
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
-    SECURE_SSL_REDIRECT = True
+    # SECURE_SSL_REDIRECT = True # nginx handles SSL redirects
     SECURE_BROWSER_XSS_FILTER = True
     SECURE_CONTENT_TYPE_NOSNIFF = True
     X_FRAME_OPTIONS = "DENY"
