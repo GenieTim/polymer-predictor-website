@@ -9,6 +9,7 @@ import concurrent.futures
 import json
 import logging
 import math
+import os
 import re
 
 import numpy as np
@@ -175,7 +176,9 @@ def prediction_endpoint_ant(request):
 
 def run_ant_predictions_parallel(prediction_input, n_runs):
     """Run multiple ANT predictions in parallel."""
-    with concurrent.futures.ThreadPoolExecutor(max_workers=min(n_runs, 8)) as executor:
+    with concurrent.futures.ThreadPoolExecutor(
+        max_workers=min(n_runs, int(os.environ.get("MAX_PARALLEL_ANT", "8")))
+    ) as executor:
         # Submit all prediction tasks
         futures = [
             executor.submit(predict_ant_results, prediction_input)
