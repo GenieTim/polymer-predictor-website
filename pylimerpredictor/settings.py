@@ -39,6 +39,7 @@ ALLOWED_HOSTS = [
     "www.polymer-predictor.ethz.ch",
     "polymer-predictor.ethz.ch",
     "localhost",
+    "82.130.69.207",
 ]
 
 
