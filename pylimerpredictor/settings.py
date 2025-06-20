@@ -10,6 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.1/ref/settings/
 """
 
+import os
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -20,12 +21,16 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = "django-insecure-(m5i0io3c6kf1)b%knn3j=qhcicusng045y@oq(h5@b18(7j8z"
+SECRET_KEY = os.environ["SECRET_KEY"]
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.environ["DEBUG"].lower() == "true"
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = [
+    "www.polymer-predictor.ethz.ch",
+    "polymer-predictor.ethz.ch",
+    "localhost",
+]
 
 
 # Application definition
@@ -133,6 +138,6 @@ LOGOUT_REDIRECT_URL = "/"
 
 # Authentication backends
 AUTHENTICATION_BACKENDS = [
-    'pylimerpredictor.backends.EmailBackend',
-    'django.contrib.auth.backends.ModelBackend',
+    "pylimerpredictor.backends.EmailBackend",
+    "django.contrib.auth.backends.ModelBackend",
 ]
