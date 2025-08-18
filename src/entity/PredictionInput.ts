@@ -1,0 +1,158 @@
+import type { Quantity } from "./Quantity";
+
+
+export interface PredictionInputInit {
+  stoichiometric_imbalance: number;
+  crosslink_conversion: number;
+  crosslink_functionality: number;
+
+  extract_solvent_before_measurement?: boolean;
+  disable_primary_loops?: boolean;
+  disable_secondary_loops?: boolean;
+  functionalize_discrete?: boolean;
+
+  n_zerofunctional_chains: number;
+  n_monofunctional_chains: number;
+  n_bifunctional_chains: number;
+  n_beads_zerofunctional: number;
+  n_beads_monofunctional: number;
+  n_beads_bifunctional: number;
+  n_beads_xlinks?: number;
+
+  temperature: Quantity;                  // K
+  density: Quantity;                      // kg/cm^3
+  bead_mass: Quantity;                    // kg/mol
+  mean_squared_bead_distance: Quantity;   // nm^2
+  plateau_modulus: Quantity;              // MPa
+  entanglement_sampling_cutoff: Quantity; // nm
+
+  description?: string;
+  polymer_name?: string;
+}
+
+export class PredictionInput {
+  // Synthesis parameters
+  stoichiometric_imbalance!: number;
+  crosslink_conversion!: number;
+  crosslink_functionality!: number;
+
+  extract_solvent_before_measurement = false;
+  disable_primary_loops = false;
+  disable_secondary_loops = false;
+  functionalize_discrete = false;
+
+  // Bead quantities
+  n_zerofunctional_chains!: number;
+  n_monofunctional_chains!: number;
+  n_bifunctional_chains!: number;
+  n_beads_zerofunctional!: number;
+  n_beads_monofunctional!: number;
+  n_beads_bifunctional!: number;
+  n_beads_xlinks = 1;
+
+  // Material & measurement properties
+  temperature!: Quantity;
+  density!: Quantity;
+  bead_mass!: Quantity;
+  mean_squared_bead_distance!: Quantity;
+  plateau_modulus!: Quantity;
+  entanglement_sampling_cutoff!: Quantity;
+
+  // Additional Info (subset)
+  description = "";
+  polymer_name = "";
+
+  constructor(init: PredictionInputInit) {
+    Object.assign(this, init);
+    // Apply defaults if undefined
+    if (init.n_beads_xlinks !== undefined) this.n_beads_xlinks = init.n_beads_xlinks;
+    this.extract_solvent_before_measurement ??= false;
+    this.disable_primary_loops ??= false;
+    this.disable_secondary_loops ??= false;
+    this.functionalize_discrete ??= false;
+    this.description ||= "";
+    this.polymer_name ||= "";
+  }
+
+  // Computed values
+  get_b2(): number {
+    return (this.n_bifunctional_chains * 2) /
+      (this.n_bifunctional_chains * 2 + this.n_monofunctional_chains);
+  }
+
+  get_n_total_chains(): number {
+    return this.n_bifunctional_chains + this.n_monofunctional_chains;
+  }
+
+  get_n_total_beads(): number {
+    return (
+      this.n_beads_bifunctional * this.n_bifunctional_chains +
+      this.n_beads_monofunctional * this.n_monofunctional_chains
+    );
+  }
+
+  get_mean_bead_distance(): Quantity {
+    // alpha = 3π/8; returns sqrt( <r^2> / alpha )
+    const alpha = (3 * Math.PI) / 8.0;
+    const val = Math.sqrt(this.mean_squared_bead_distance.value / alpha);
+    return { value: val, unit: "nm" };
+  }
+
+  get_bead_density(): Quantity {
+    // density / bead_mass -> (kg/cm^3) / (kg/mol) = mol/cm^3
+    // Then multiply by Avogadro to get 1/cm^3 (number density).
+    const molPerVolume = divideQuantities(this.density, this.bead_mass, "mol/cm^3");
+    const Na = 6.022e23;
+    const numberDensity = multiplyQuantity(molPerVolume, Na);
+    numberDensity.unit = "1/cm^3";
+    return numberDensity;
+  }
+
+  get_n_chains_crosslinks(): number {
+    if (this.stoichiometric_imbalance <= 0) return 0;
+    return Math.trunc(
+      (
+        (this.n_bifunctional_chains * 2 + this.n_monofunctional_chains) *
+        this.stoichiometric_imbalance
+      ) / this.crosslink_functionality
+    );
+  }
+
+  get_n_beads_total(): number {
+    return (
+      this.n_beads_bifunctional * this.n_bifunctional_chains +
+      this.n_beads_monofunctional * this.n_monofunctional_chains +
+      this.n_beads_zerofunctional * this.n_zerofunctional_chains +
+      this.n_beads_xlinks * this.get_n_chains_crosslinks()
+    );
+  }
+
+  get_total_n_beads_solvent(): number {
+    return this.n_beads_zerofunctional * this.n_zerofunctional_chains;
+  }
+
+  get_total_n_beads_bifunctional(): number {
+    return this.n_beads_bifunctional * this.n_bifunctional_chains;
+  }
+
+  get_total_n_beads_monofunctional(): number {
+    return this.n_beads_monofunctional * this.n_monofunctional_chains;
+  }
+
+  get_total_n_beads_xlinks(): number {
+    return this.n_beads_xlinks * this.get_n_chains_crosslinks();
+  }
+
+  is_mmtable(): boolean {
+    return !(
+      this.extract_solvent_before_measurement ||
+      this.n_zerofunctional_chains > 0 ||
+      this.n_beads_xlinks > 1
+    );
+  }
+
+  // Helper to create from plain JSON (if needed)
+  static fromJSON(json: any): PredictionInput {
+    return new PredictionInput(json as PredictionInputInit);
+  }
+}

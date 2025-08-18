@@ -1,0 +1,20 @@
+{
+  "name": "pylimer-predictor-website",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "typescript": "~5.8.3",
+    "vite": "^7.1.2"
+  },
+  "dependencies": {
+    "pyodide": "^0.28.1",
+    "uuid": "^11.1.0",
+    "vite-plugin-static-copy": "^3.1.1"
+  }
+}
