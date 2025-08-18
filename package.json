@@ -5,16 +5,20 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build",
-    "preview": "vite preview"
+    "build": "vite build",
+    "preview": "vite preview",
+    "check": "svelte-check --tsconfig ./tsconfig.app.json && tsc -p tsconfig.node.json"
   },
   "devDependencies": {
+    "@sveltejs/vite-plugin-svelte": "^6.1.2",
+    "@tsconfig/svelte": "^5.0.4",
+    "svelte": "^5.38.1",
+    "svelte-check": "^4.3.1",
     "typescript": "~5.8.3",
     "vite": "^7.1.2"
   },
   "dependencies": {
-    "pyodide": "^0.28.1",
-    "uuid": "^11.1.0",
-    "vite-plugin-static-copy": "^3.1.1"
+    "halfmoon": "^2.0.2",
+    "uuid": "^11.1.0"
   }
 }
