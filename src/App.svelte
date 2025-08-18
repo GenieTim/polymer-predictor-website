@@ -1,15 +1,16 @@
 <script lang="ts">
+	import { preventDefault, run } from 'svelte/legacy';
 	/**
 	 * Port of the legacy Django template (old.html) to Svelte.
 	 * Replaces server POST endpoints with local web‑worker predictors.
 	 */
+	import polymerPresetsDict from "../public/polymer-presets.json";
 	import { PredictionInput } from "./entity/PredictionInput";
 	import type { DynamicModulusPredictorOutput, ModulusPredictionOutput } from "./entity/PredictionOutput";
 	import type { Quantity } from "./entity/Quantity";
 	import { ANTPredictor } from "./worker_predictor/ant/ant_predictor";
 	import { MMTPredictor } from "./worker_predictor/mmt/mmt_predictor";
 	import { NMAPredictor } from "./worker_predictor/nma/nma_predictor";
-  import polymerPresetsDict from "../public/polymer-presets.json";
 
 	// ---- Polymer definitions (placeholder until dynamic source added) ----
 	interface PolymerPreset {
@@ -25,29 +26,30 @@
 	const polymerPresets: PolymerPreset[] = Object.values(polymerPresetsDict);
 
 	// Selected polymer
-	let polymer_name = polymerPresets[0].name;
-	$: selectedPolymer = polymerPresets.find(p => p.name === polymer_name)!;
+	let polymer_name = $state(polymerPresets[0].name);
 
 	// ---- Network parameter inputs (user editable) ----
-	let stoichiometric_imbalance = 1.0; // r
-	let crosslink_functionality = 4; // f
-	let crosslink_conversion = 0.95; // p (will be clamped by reactive min/max)
-	let b2_molar_fraction = 1.0; // b2
+	let stoichiometric_imbalance = $state(1.0); // r
+	let crosslink_functionality = $state(4); // f
+	let crosslink_conversion = $state(0.95); // p (will be clamped by reactive min/max)
+	let b2_molar_fraction = $state(1.0); // b2
+
+	let selectedPolymer = $derived(polymerPresets.find(p => p.name === polymer_name)!);
 
 	// Molecular weights (user editable, converted to bead counts)
-	let mw_bifunctional = 30 * selectedPolymer.bead_mass;
-	let mw_monofunctional = 0;
-	let mw_xlinks = 1 * selectedPolymer.bead_mass;
+	let mw_bifunctional = $state(30 * selectedPolymer.bead_mass);
+	let mw_monofunctional = $state(0);
+	let mw_xlinks = $state(1 * selectedPolymer.bead_mass);
 	let mw_zerofunctional = 0; // hidden
 
 	// Additional synthesis parameters (booleans)
-	let extract_solvent_before_measurement = false;
-	let disable_primary_loops = false;
-	let disable_secondary_loops = false;
-	let functionalize_discrete = false;
+	let extract_solvent_before_measurement = $state(false);
+	let disable_primary_loops = $state(false);
+	let disable_secondary_loops = $state(false);
+	let functionalize_discrete = $state(false);
 
 	// Metadata
-	let description = "";
+	let description = $state("");
 
 	// Derived chain counts from b2 fraction (keep total constant like original JS: 1e4)
 	const TOTAL_CHAINS = 10000;
@@ -57,46 +59,19 @@
 		const n_monofunctional_chains = TOTAL_CHAINS - n_bifunctional_chains;
 		return { n_bifunctional_chains, n_monofunctional_chains };
 	}
-	$: ({ n_bifunctional_chains, n_monofunctional_chains } = computeChainNumbers(b2_molar_fraction));
 	const n_zerofunctional_chains = 0; // hidden & fixed
 
 	// Reactive min/max for crosslink conversion p
-	let pMin = 0.0;
-	let pMax = 1.0;
-	$: {
-		// p_gel = sqrt( 1 / (r*(f-1)*b2) )
-		const denom = stoichiometric_imbalance * (crosslink_functionality - 1) * b2_molar_fraction;
-		let pgel = denom > 0 ? Math.sqrt(1 / denom) : 1;
-		if (!isFinite(pgel)) pgel = 1;
-		pMin = clamp(toStep(pgel, 0.01, "up"), 0, 1);
-
-		// p_max logic from legacy JS:
-		const max_possible_bonds = n_bifunctional_chains * 2 + n_monofunctional_chains;
-		const n_xlinks = (max_possible_bonds * stoichiometric_imbalance) / crosslink_functionality;
-		const p_max_calc = n_xlinks > 0 ? max_possible_bonds / (n_xlinks * crosslink_functionality) : 1;
-		pMax = clamp(toStep(Math.min(1, p_max_calc), 0.01, "down"), 0, 1);
-		// Clamp user input
-		crosslink_conversion = clamp(crosslink_conversion, pMin, pMax);
-	}
+	let pMin = $state(0.0);
+	let pMax = $state(1.0);
 
 	function toStep(value: number, step: number, dir: "up" | "down") {
 		return dir === "up" ? Math.ceil(value / step) * step : Math.floor(value / step) * step;
 	}
 	function clamp(v: number, min: number, max: number) { return Math.min(Math.max(v, min), max); }
 
-	// Adjust crosslink functionality max based on n_beads_xlinks (legacy behavior)
-	$: bead_mass = selectedPolymer.bead_mass;
-	$: n_beads_xlinks = Math.max(1, Math.round(mw_xlinks / bead_mass));
-	$: max_crosslink_functionality = Math.max(6, n_beads_xlinks * 6);
-	$: crosslink_functionality = Math.min(crosslink_functionality, max_crosslink_functionality);
-
-	// Convert molecular weights to bead numbers
-	$: n_beads_bifunctional = Math.round(mw_bifunctional / bead_mass);
-	$: n_beads_monofunctional = Math.round(mw_monofunctional / bead_mass);
-	$: n_beads_zerofunctional = Math.round(mw_zerofunctional / bead_mass);
-
 	// Form dirtiness / stale results marker
-	let dirty = false;
+	let dirty = $state(false);
 	function markDirty() { dirty = true; }
 
 	// Predictor instances (lazily created on first run to avoid spawning workers unnecessarily)
@@ -105,15 +80,13 @@
 	let nmaPredictor: NMAPredictor | null = null;
 
 	// Results & loading flags
-	let antSamples: ModulusPredictionOutput[] = [];
-	let antLoading = false;
-	let mmtResult: ModulusPredictionOutput | null = null;
-	let mmtLoading = false;
-	let nmaResult: DynamicModulusPredictorOutput | null = null;
-	let nmaLoading = false;
+	let antSamples: ModulusPredictionOutput[] = $state([]);
+	let antLoading = $state(false);
+	let mmtResult: ModulusPredictionOutput | null = $state(null);
+	let mmtLoading = $state(false);
+	let nmaResult: DynamicModulusPredictorOutput | null = $state(null);
+	let nmaLoading = $state(false);
 
-	// Aggregate ANT samples -> mean & (sample std as error)
-	$: antAggregate = computeAntAggregate(antSamples);
 	function computeAntAggregate(samples: ModulusPredictionOutput[]) {
 		if (!samples.length) return null;
 		function mean(vals: number[]) { return vals.reduce((a, b) => a + b, 0) / vals.length; }
@@ -199,12 +172,17 @@
 		dirty = false;
 		antSamples = []; // reset previous samples on new submission
 		const input = buildPredictionInput();
-		// Launch predictors (ANT one sample first, others once)
-		await Promise.all([
+    let promises = [
 			runANTSample(input),
 			runMMT(input),
 			runNMA(input),
-		]);
+		];
+    // repeat ANT sample
+    for (let i = 0; i < 2; i++) {
+			promises.push(runANTSample(input));
+		}
+		// Launch predictors (ANT one sample first, others once)
+		await Promise.all(promises);
 	}
 
 	async function refineANT() {
@@ -214,6 +192,36 @@
 	}
 
 	function format2(v?: number) { return v == null || !isFinite(v) ? "-" : v.toFixed(2); }
+
+  let { n_bifunctional_chains, n_monofunctional_chains } = $derived(computeChainNumbers(b2_molar_fraction));
+	// Adjust crosslink functionality max based on n_beads_xlinks (legacy behavior)
+	let bead_mass = $derived(selectedPolymer.bead_mass);
+	let n_beads_xlinks = $derived(Math.max(1, Math.round(mw_xlinks / bead_mass)));
+	let max_crosslink_functionality = $derived(Math.max(6, n_beads_xlinks * 6));
+	run(() => {
+		crosslink_functionality = Math.min(crosslink_functionality, max_crosslink_functionality);
+	});
+	run(() => {
+		// p_gel = sqrt( 1 / (r*(f-1)*b2) )
+		const denom = stoichiometric_imbalance * (crosslink_functionality - 1) * b2_molar_fraction;
+		let pgel = denom > 0 ? Math.sqrt(1 / denom) : 1;
+		if (!isFinite(pgel)) pgel = 1;
+		pMin = clamp(toStep(pgel, 0.01, "up"), 0, 1);
+
+		// p_max logic from legacy JS:
+		const max_possible_bonds = n_bifunctional_chains * 2 + n_monofunctional_chains;
+		const n_xlinks = (max_possible_bonds * stoichiometric_imbalance) / crosslink_functionality;
+		const p_max_calc = n_xlinks > 0 ? max_possible_bonds / (n_xlinks * crosslink_functionality) : 1;
+		pMax = clamp(toStep(Math.min(1, p_max_calc), 0.01, "down"), 0, 1);
+		// Clamp user input
+		crosslink_conversion = clamp(crosslink_conversion, pMin, pMax);
+	});
+	// Convert molecular weights to bead numbers
+	let n_beads_bifunctional = $derived(Math.round(mw_bifunctional / bead_mass));
+	let n_beads_monofunctional = $derived(Math.round(mw_monofunctional / bead_mass));
+	let n_beads_zerofunctional = $derived(Math.round(mw_zerofunctional / bead_mass));
+	// Aggregate ANT samples -> mean & (sample std as error)
+	let antAggregate = $derived(computeAntAggregate(antSamples));
 </script>
 
 <style>
@@ -234,11 +242,11 @@
 	<div class="row">
 		<div class="column col-sm-6">
 			<h2>Input</h2>
-			<form on:submit|preventDefault={onSubmit} id="prediction-form">
+			<form onsubmit={preventDefault(onSubmit)} id="prediction-form">
 				<section>
 					<h3>Polymer Properties</h3>
 					<label>Polymer
-						<select bind:value={polymer_name} class="form-select" on:change={() => { markDirty(); /* update dependent defaults */ mw_bifunctional = 30 * selectedPolymer.bead_mass; mw_xlinks = 1 * selectedPolymer.bead_mass; }}>
+						<select bind:value={polymer_name} class="form-select" onchange={() => { markDirty(); /* update dependent defaults */ mw_bifunctional = 30 * selectedPolymer.bead_mass; mw_xlinks = 1 * selectedPolymer.bead_mass; }}>
 							{#each polymerPresets as p}
 								<option value={p.name}>{p.name}</option>
 							{/each}
@@ -287,25 +295,25 @@
 				<section>
 					<h3>Network Parameters</h3>
 					<label class="w-100">Stoichiometric imbalance (r)
-						<input type="number" step="0.01" min="0.5" max="2" bind:value={stoichiometric_imbalance} class="form-control" on:input={markDirty}>
+						<input type="number" step="0.01" min="0.5" max="2" bind:value={stoichiometric_imbalance} class="form-control" oninput={markDirty}>
 					</label>
 								<label class="w-100">Cross-link functionality (f) (≤ {max_crosslink_functionality})
-									<input type="number" min="3" max={max_crosslink_functionality} bind:value={crosslink_functionality} class="form-control" on:input={markDirty}>
+									<input type="number" min="3" max={max_crosslink_functionality} bind:value={crosslink_functionality} class="form-control" oninput={markDirty}>
 					</label>
 					<label class="w-100">Cross-link conversion (p) [{format2(pMin)} – {format2(pMax)}]
-						<input type="number" step="0.01" min={pMin} max={pMax} bind:value={crosslink_conversion} class="form-control" on:input={markDirty}>
+						<input type="number" step="0.01" min={pMin} max={pMax} bind:value={crosslink_conversion} class="form-control" oninput={markDirty}>
 					</label>
 					<label class="w-100">b<sub>2</sub> molar fraction
-						<input type="number" step="0.01" min="0" max="1" bind:value={b2_molar_fraction} class="form-control" on:input={markDirty}>
+						<input type="number" step="0.01" min="0" max="1" bind:value={b2_molar_fraction} class="form-control" oninput={markDirty}>
 					</label>
 					<label class="w-100">M<sub>w</sub><sup>B<sub>2</sub></sup> [kg/mol]
-						<input type="number" step="0.0001" min="0.1" bind:value={mw_bifunctional} class="form-control" on:input={markDirty}>
+						<input type="number" step="0.0001" min="0.1" bind:value={mw_bifunctional} class="form-control" oninput={markDirty}>
 					</label>
 					<label class="w-100">M<sub>w</sub><sup>B<sub>1</sub></sup> [kg/mol]
-						<input type="number" step="0.0001" min="0" bind:value={mw_monofunctional} class="form-control" on:input={markDirty}>
+						<input type="number" step="0.0001" min="0" bind:value={mw_monofunctional} class="form-control" oninput={markDirty}>
 					</label>
 					<label class="w-100">M<sub>w</sub><sup>X</sup> [kg/mol]
-						<input type="number" step="0.0001" min="0.1" bind:value={mw_xlinks} class="form-control" on:input={markDirty}>
+						<input type="number" step="0.0001" min="0.1" bind:value={mw_xlinks} class="form-control" oninput={markDirty}>
 					</label>
 				</section>
 
@@ -314,19 +322,19 @@
 				<section>
 					<h3>Additional Synthesis Parameters</h3>
 					<label class="form-check d-block">
-						<input type="checkbox" class="form-check-input" bind:checked={extract_solvent_before_measurement} on:change={markDirty}>
+						<input type="checkbox" class="form-check-input" bind:checked={extract_solvent_before_measurement} onchange={markDirty}>
 						Extract solvent before measurement
 					</label>
 					<label class="form-check d-block">
-						<input type="checkbox" class="form-check-input" bind:checked={disable_primary_loops} on:change={markDirty}>
+						<input type="checkbox" class="form-check-input" bind:checked={disable_primary_loops} onchange={markDirty}>
 						Disable primary loops
 					</label>
 						<label class="form-check d-block">
-							<input type="checkbox" class="form-check-input" bind:checked={disable_secondary_loops} on:change={markDirty}>
+							<input type="checkbox" class="form-check-input" bind:checked={disable_secondary_loops} onchange={markDirty}>
 							Disable secondary loops
 						</label>
 						<label class="form-check d-block">
-							<input type="checkbox" class="form-check-input" bind:checked={functionalize_discrete} on:change={markDirty}>
+							<input type="checkbox" class="form-check-input" bind:checked={functionalize_discrete} onchange={markDirty}>
 							Functionalize discrete
 						</label>
 				</section>
@@ -335,14 +343,14 @@
 
 				<section>
 					<label class="w-100">Description
-						<textarea rows="3" class="form-control" bind:value={description} on:input={markDirty} placeholder="Optional description"></textarea>
+						<textarea rows="3" class="form-control" bind:value={description} oninput={markDirty} placeholder="Optional description"></textarea>
 					</label>
 				</section>
 
 				<hr />
 				<div class="d-flex align-items-center gap-2">
 					<button type="submit" class="btn btn-primary btn-lg">Predict</button>
-					<button type="button" class="btn btn-outline-secondary" disabled={!antAggregate || dirty} on:click={refineANT}>Refine ANT</button>
+					<button type="button" class="btn btn-outline-secondary" disabled={!antAggregate || dirty} onclick={refineANT}>Refine ANT</button>
 					{#if antAggregate}
 						<small class={dirty ? 'text-warning' : 'text-muted'}>{dirty ? 'Input changed – re-run Predict' : `ANT samples: ${antAggregate.n}`}</small>
 					{/if}

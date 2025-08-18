@@ -22,6 +22,7 @@ self.onmessage = async (event) => {
   try {
     // Execute the python code in this context
     const result = await pyodide.runPythonAsync(python, { globals });
+    
     self.postMessage({ result, id });
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
