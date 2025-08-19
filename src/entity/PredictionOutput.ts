@@ -1,17 +1,17 @@
-import { addQuantities, type Quantity } from "./Quantity";
+import Qty from "js-quantities";
 
 export class ModulusPredictionOutput {
-  phantom_modulus!: Quantity;
-  entanglement_modulus!: Quantity;
-  w_soluble!: Quantity;
-  w_dangling!: Quantity;
+  phantom_modulus!: Qty;
+  entanglement_modulus!: Qty;
+  w_soluble!: Qty;
+  w_dangling!: Qty;
 
-  public get w_active() {
-    return 1 - this.w_soluble.value - this.w_dangling.value;
+  public get w_active(): Qty {
+    return Qty(1, "").sub(this.w_soluble).sub(this.w_dangling);
   }
 
-  public get modulus(): Quantity {
-    return addQuantities(this.phantom_modulus, this.entanglement_modulus);
+  public get modulus(): Qty {
+    return this.phantom_modulus.add(this.entanglement_modulus);
   }
 }
 

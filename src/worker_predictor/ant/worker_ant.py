@@ -5,10 +5,11 @@ import math
 import time
 
 import numpy as np
-from pylimer_doctorate_utils.pdms_parameter_provider import Parameters
 from pylimer_tools.calc.structure_analysis import \
     compute_crosslinker_conversion
 from pylimer_tools.generate_network import generate_structure
+from pylimer_tools.io.bead_spring_parameter_provider import (
+    Parameters, get_gaussian_parameters_for_polymer)
 from pylimer_tools_cpp import (MEHPForceBalance2, MoleculeType,
                                StructureSimplificationMode, Universe,
                                version_information)
@@ -18,50 +19,53 @@ same_strand_cutoff = 0.0
 
 # As this script is run using pyodide,
 # prediction_input should be hydrated from there
-assert prediction_input is not None, "PredictionInput must not be None" # pyright: ignore[reportUndefinedVariable]
+assert (
+    prediction_input is not None
+), "PredictionInput must not be None"  # pyright: ignore[reportUndefinedVariable]
 
 
-def prediction_input_to_parameters(prediction_input: PredictionInput) -> Parameters:
+def prediction_input_to_parameters(prediction_input: dict) -> Parameters:
     """
     Convert PredictionInput to Parameters object.
     """
-    return Parameters(
-        {
-            "R02": prediction_input.mean_squared_bead_distance,
-            "Mw": prediction_input.bead_mass,
-            "<b>": prediction_input.get_mean_bead_distance(),
-            "<b^2>": prediction_input.mean_squared_bead_distance,
-            "rho": prediction_input.density,
-            "Ge": prediction_input.plateau_modulus,
-            "T": prediction_input.temperature,
-            "distance_units": 1 * ureg("nm"),
-            "kb": 1.380649e-23 * ureg.joule / ureg.kelvin,
-        },
-        ureg,
-        prediction_input.polymer_name,
-    )
+    # return Parameters(
+    #     {
+    #         "R02": prediction_input.mean_squared_bead_distance,
+    #         "Mw": prediction_input.bead_mass,
+    #         "<b>": prediction_input.get_mean_bead_distance(),
+    #         "<b^2>": prediction_input.mean_squared_bead_distance,
+    #         "rho": prediction_input.density,
+    #         "Ge": prediction_input.plateau_modulus,
+    #         "T": prediction_input.temperature,
+    #         "distance_units": 1 * ureg("nm"),
+    #         "kb": 1.380649e-23 * ureg.joule / ureg.kelvin,
+    #     },
+    #     ureg,
+    #     prediction_input.polymer_name,
+    # )
+    return get_gaussian_parameters_for_polymer(prediction_input["polymer_name"])
 
 
-def predict_ant_results(prediction_input: PredictionInput) -> dict:
+def predict_ant_results(prediction_input: dict) -> dict:
     """
     Compute ANT data for given parameters.
     """
     universe = generate_structure(
         params=prediction_input_to_parameters(prediction_input),
-        n_beads_per_chain_1=prediction_input.n_beads_bifunctional,
-        n_chains_1=prediction_input.n_bifunctional_chains,
-        n_mono_beads_per_chain=prediction_input.n_beads_monofunctional,
-        n_mono_chains=prediction_input.n_monofunctional_chains,
-        target_f=prediction_input.crosslink_functionality,
-        target_p=prediction_input.crosslink_conversion,
-        n_solvent_chains=prediction_input.n_zerofunctional_chains,
-        n_beads_per_solvent_chain=prediction_input.n_beads_zerofunctional,
-        n_beads_per_xlink=prediction_input.n_beads_xlinks,
-        remove_wsol=prediction_input.extract_solvent_before_measurement,
-        disable_primary_loops=prediction_input.disable_primary_loops,
-        disable_secondary_loops=prediction_input.disable_secondary_loops,
-        functionalize_discrete=prediction_input.functionalize_discrete,
-        n_chains_crosslinks=prediction_input.get_n_chains_crosslinks(),
+        n_beads_per_chain_1=prediction_input["n_beads_bifunctional"],
+        n_chains_1=prediction_input["n_bifunctional_chains"],
+        n_mono_beads_per_chain=prediction_input["n_beads_monofunctional"],
+        n_mono_chains=prediction_input["n_monofunctional_chains"],
+        target_f=prediction_input["crosslink_functionality"],
+        target_p=prediction_input["crosslink_conversion"],
+        n_solvent_chains=prediction_input["n_zerofunctional_chains"],
+        n_beads_per_solvent_chain=prediction_input["n_beads_zerofunctional"],
+        n_beads_per_xlink=prediction_input["n_beads_xlinks"],
+        remove_wsol=prediction_input["extract_solvent_before_measurement"],
+        disable_primary_loops=prediction_input["disable_primary_loops"],
+        disable_secondary_loops=prediction_input["disable_secondary_loops"],
+        functionalize_discrete=prediction_input["functionalize_discrete"],
+        n_chains_crosslinkers=prediction_input["n_chains_crosslinks"](),
     )
 
     results = analyse_universe(universe, prediction_input=prediction_input)
@@ -74,26 +78,26 @@ def predict_ant_results(prediction_input: PredictionInput) -> dict:
     return results
 
 
-def analyse_universe(universe: Universe, prediction_input: PredictionInput) -> dict:
+def analyse_universe(universe: Universe, prediction_input: dict) -> dict:
     """
     Runs force relaxation and force balance on a given structure.
     """
     # shortcuts
-    ge_1 = prediction_input.plateau_modulus
-    f = prediction_input.crosslink_functionality
+    ge_1 = prediction_input["plateau_modulus"]
+    f = prediction_input["crosslink_functionality"]
     # prepare conversion factors
-    r02_slope = prediction_input.mean_squared_bead_distance
+    r02_slope = prediction_input["mean_squared_bead_distance"]
     r02_slope_magnitude = r02_slope.to("nm^2").magnitude
 
     parameters = prediction_input_to_parameters(prediction_input)
-    kbt = prediction_input.temperature * parameters.get("kb")
+    kbt = prediction_input["temperature"] * parameters.get("kb")
     gamma_conversion_factor = (
         (kbt / ((parameters.get("distance_units")) ** 3)).to("MPa").magnitude
     )
     stress_conversion = parameters.get_fb_stress_conversion()
 
     entanglement_density = parameters.get_entanglement_density(ge_1)
-    sampling_cutoff = prediction_input.entanglement_sampling_cutoff
+    sampling_cutoff = prediction_input["entanglement_sampling_cutoff"]
 
     start_time = time.time()
     molecules = universe.get_molecules(crosslink_type)
@@ -219,7 +223,7 @@ def analyse_universe(universe: Universe, prediction_input: PredictionInput) -> d
     # Run force balance in phantom mode
     force_balance_phantom = MEHPForceBalance2(universe, crosslinker_type=crosslink_type)
     force_balance_phantom.run_force_relaxation(
-        simplification_mode=StructureSimplificationMode.ALL_TIM,
+        simplification_mode=StructureSimplificationMode.NO_SIMPLIFICATION,
     )
     universe_data["Phantom, Force Balance, G_ANT [MPa]"] = (
         gamma_conversion_factor
@@ -325,7 +329,7 @@ def analyse_universe(universe: Universe, prediction_input: PredictionInput) -> d
         print("Network valid before starting relaxation.")
 
         force_balance_base.run_force_relaxation(
-            simplification_mode=StructureSimplificationMode.ALL_TIM
+            simplification_mode=StructureSimplificationMode.INACTIVE_THEN_X2F
         )
 
         for key in meanable_funs.keys():
@@ -350,11 +354,11 @@ def analyse_universe(universe: Universe, prediction_input: PredictionInput) -> d
 
 
 # Actual script, as called from pyodide
-results = predict_ant_results(prediction_input)
+results = predict_ant_results(prediction_input.as_object_map(hereditary=True))
 # Final statement is an expression -> value is returned to JavaScript
 {
-    "phantom_modulus": results.get("phantom_modulus"),
-    "entanglement_modulus": results.get("entanglement_modulus"),
-    "w_soluble": results.get("w_soluble"),
-    "w_dangling": results.get("w_dangling"),
-} # pyright: ignore[reportUnusedExpression]
+    "phantom_modulus": {"value": results.get("phantom_modulus"), "unit": "MPa"},
+    "entanglement_modulus": {"value": results.get("entanglement_modulus"), "unit": "MPa"},
+    "w_soluble": {"value": results.get("w_soluble", 0.) * 100, "unit": "%"},
+    "w_dangling": {"value": results.get("w_dangling", 0.) * 100, "unit": "%"},
+}  # pyright: ignore[reportUnusedExpression]

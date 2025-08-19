@@ -2,30 +2,64 @@
 
 import warnings
 
+from pint import UnitRegistry
 from pylimer_tools.calc.miller_macosko_theory import (
-    compute_modulus_decomposition, compute_weight_fraction_of_backbone,
+    compute_modulus_decomposition,
+    compute_weight_fraction_of_backbone,
     compute_weight_fraction_of_dangling_chains,
-    compute_weight_fraction_of_soluble_material)
+    compute_weight_fraction_of_soluble_material,
+)
 
 """
 Shortcut to acquire all data from MMT given some parameters.
 """
 
+ureg = UnitRegistry()
+# register alias for JavaScript Unit library
+ureg.define("tempK = 1 K")
+ureg.define("cm3 = 1 cm^3")
+ureg.define("nm2 = 1 nm^2")
+ureg.define("kg2 = 1 kg^2")
 
-def predict_mmt_results(prediction_input: PredictionInput) -> dict:
+
+def parse_quantities_from_js(input_dict: dict):
+    """
+    Convert the JavaScript-style object to a dictionary of pint quantities.
+    """
+    output_dict = {}
+    for key, value in input_dict.items():
+        if isinstance(value, (int, float, str, list)):
+            output_dict[key] = value
+        elif "value" in value and "unit" in value:
+            output_dict[key] = ureg.Quantity(value["value"], value["unit"])
+        else:
+            warnings.warn(f"Unexpected type for key {key}: {type(value)}")
+            output_dict[key] = value
+    return output_dict
+
+
+def predict_mmt_results(prediction_input_dict: dict) -> dict:
     """
     Compute MMT data for given parameters.
     """
-    r = prediction_input.stoichiometric_imbalance
-    p = prediction_input.crosslink_conversion
-    f = prediction_input.crosslink_functionality
-    ge_1 = prediction_input.plateau_modulus
-    temperature = prediction_input.temperature
-    density = prediction_input.density
-    Mw1 = prediction_input.n_beads_monofunctional * prediction_input.bead_mass
-    Mw2 = prediction_input.n_beads_bifunctional * prediction_input.bead_mass
-    MwX = prediction_input.n_beads_xlinks * prediction_input.bead_mass
-    b2 = prediction_input.get_b2()
+    prediction_input_dict = parse_quantities_from_js(prediction_input_dict)
+
+    r = prediction_input_dict["stoichiometric_imbalance"]
+    p = prediction_input_dict["crosslink_conversion"]
+    f = prediction_input_dict["crosslink_functionality"]
+    ge_1 = prediction_input_dict["plateau_modulus"]
+    temperature = prediction_input_dict["temperature"]
+    density = prediction_input_dict["density"]
+    Mw1 = (
+        prediction_input_dict["n_beads_monofunctional"]
+        * prediction_input_dict["bead_mass"]
+    )
+    Mw2 = (
+        prediction_input_dict["n_beads_bifunctional"]
+        * prediction_input_dict["bead_mass"]
+    )
+    MwX = prediction_input_dict["n_beads_xlinks"] * prediction_input_dict["bead_mass"]
+    b2 = prediction_input_dict["b2"]
 
     n_chains = 1e7
     n_chains_mono = int((2 * n_chains * (1 - b2)) / b2)
@@ -122,15 +156,23 @@ def predict_mmt_results(prediction_input: PredictionInput) -> dict:
 
     return data
 
+
 # As this script is run using pyodide,
 # prediction_input should be hydrated from there
-assert prediction_input is not None, "PredictionInput must not be None" # pyright: ignore[reportUndefinedVariable]
+assert (
+    prediction_input is not None
+), "PredictionInput must not be None"  # pyright: ignore[reportUndefinedVariable]
 # Actual script, as called from pyodide
-results = predict_mmt_results(prediction_input)
-# Final statement is an expression -> value is returned to JavaScript
-{
+results = predict_mmt_results(prediction_input.as_object_map(hereditary=True))
+# Reduce to what we care about
+res = {
     "phantom_modulus": results.get("g_phantom"),
     "entanglement_modulus": results.get("g_entangled"),
     "w_soluble": results.get("w_soluble"),
     "w_dangling": results.get("w_dangling"),
-} # pyright: ignore[reportUnusedExpression]
+}
+for key, value in res.items():
+    if isinstance(value, ureg.Quantity):
+        res[key] = value.to("MPa").magnitude if "g_" in key else value.magnitude
+# Final statement is an expression -> value is returned to JavaScript
+res  # pyright: ignore[reportUnusedExpression]

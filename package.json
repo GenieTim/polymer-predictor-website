@@ -18,7 +18,9 @@
     "vite": "^7.1.2"
   },
   "dependencies": {
+    "@types/js-quantities": "^1.6.6",
     "halfmoon": "^2.0.2",
+    "js-quantities": "^1.8.0",
     "uuid": "^11.1.0"
   }
 }

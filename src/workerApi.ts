@@ -14,7 +14,7 @@ function getId() {
 }
 
 const POOL_SIZE =
-  Math.max(1, (typeof navigator !== "undefined" && (navigator as any).hardwareConcurrency) || 2);
+  Math.min(5, Math.max(1, (typeof navigator !== "undefined" && (navigator as any).hardwareConcurrency) || 2));
 const pyodideWorkers: Worker[] = Array.from({ length: POOL_SIZE }, () => new PyodideWorker());
 
 // Track pending request resolvers by id.
