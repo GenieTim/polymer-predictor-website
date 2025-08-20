@@ -150,7 +150,7 @@ export class PredictionInput {
     const inputWithComputed = {
       ...this,
       b2: this.b2,
-      n_total_beads: this.n_beads_total,
+      n_beads_total: this.n_beads_total,
       n_chains_crosslinks: this.n_chains_crosslinks,
       mean_bead_distance: this.mean_bead_distance,
       bead_density: this.bead_density,

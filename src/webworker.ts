@@ -14,8 +14,8 @@ self.onmessage = async (event) => {
   await Promise.all([
     micropip.install("numpy"),
     // micropip.install("scipy"),
-    micropip.install("pandas"),
-    micropip.install("openpyxl"),
+    // micropip.install("pandas"),
+    // micropip.install("openpyxl"),
     micropip.install("pint"),
     // some annoying dependencies of pylimer_tools
     micropip.install("click"),

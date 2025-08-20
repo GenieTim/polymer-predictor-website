@@ -3,8 +3,10 @@
 import datetime
 import math
 import time
+import warnings
 
 import numpy as np
+from pint import UnitRegistry
 from pylimer_tools.calc.structure_analysis import \
     compute_crosslinker_conversion
 from pylimer_tools.generate_network import generate_structure
@@ -22,6 +24,29 @@ same_strand_cutoff = 0.0
 assert (
     prediction_input is not None
 ), "PredictionInput must not be None"  # pyright: ignore[reportUndefinedVariable]
+
+ureg = UnitRegistry()
+# register alias for JavaScript Unit library
+ureg.define("tempK = 1 K")
+ureg.define("cm3 = 1 cm^3")
+ureg.define("nm2 = 1 nm^2")
+ureg.define("kg2 = 1 kg^2")
+
+
+def parse_quantities_from_js(input_dict: dict):
+    """
+    Convert the JavaScript-style object to a dictionary of pint quantities.
+    """
+    output_dict = {}
+    for key, value in input_dict.items():
+        if isinstance(value, (int, float, str, list)):
+            output_dict[key] = value
+        elif "value" in value and "unit" in value:
+            output_dict[key] = ureg.Quantity(value["value"], value["unit"])
+        else:
+            warnings.warn(f"Unexpected type for key {key}: {type(value)}")
+            output_dict[key] = value
+    return output_dict
 
 
 def prediction_input_to_parameters(prediction_input: dict) -> Parameters:
@@ -43,13 +68,15 @@ def prediction_input_to_parameters(prediction_input: dict) -> Parameters:
     #     ureg,
     #     prediction_input.polymer_name,
     # )
-    return get_gaussian_parameters_for_polymer(prediction_input["polymer_name"])
+    return get_gaussian_parameters_for_polymer(prediction_input["polymer_name"], ureg=ureg)
 
 
 def predict_ant_results(prediction_input: dict) -> dict:
     """
     Compute ANT data for given parameters.
     """
+    prediction_input = parse_quantities_from_js(prediction_input)
+
     universe = generate_structure(
         params=prediction_input_to_parameters(prediction_input),
         n_beads_per_chain_1=prediction_input["n_beads_bifunctional"],
@@ -65,7 +92,7 @@ def predict_ant_results(prediction_input: dict) -> dict:
         disable_primary_loops=prediction_input["disable_primary_loops"],
         disable_secondary_loops=prediction_input["disable_secondary_loops"],
         functionalize_discrete=prediction_input["functionalize_discrete"],
-        n_chains_crosslinkers=prediction_input["n_chains_crosslinks"](),
+        n_chains_crosslinkers=prediction_input["n_chains_crosslinks"],
     )
 
     results = analyse_universe(universe, prediction_input=prediction_input)
@@ -355,10 +382,18 @@ def analyse_universe(universe: Universe, prediction_input: dict) -> dict:
 
 # Actual script, as called from pyodide
 results = predict_ant_results(prediction_input.as_object_map(hereditary=True))
+res = {
+    "phantom_modulus": results.get("")
+}
+# Reduce to what we care about
+res = {
+    "phantom_modulus": results.get("g_phantom"),
+    "entanglement_modulus": results.get("g_entangled"),
+    "w_soluble": results.get("w_soluble"),
+    "w_dangling": results.get("w_dangling"),
+}
+for key, value in res.items():
+    if isinstance(value, ureg.Quantity):
+        res[key] = value.to("MPa").magnitude if "g_" in key else value.magnitude
 # Final statement is an expression -> value is returned to JavaScript
-{
-    "phantom_modulus": {"value": results.get("phantom_modulus"), "unit": "MPa"},
-    "entanglement_modulus": {"value": results.get("entanglement_modulus"), "unit": "MPa"},
-    "w_soluble": {"value": results.get("w_soluble", 0.) * 100, "unit": "%"},
-    "w_dangling": {"value": results.get("w_dangling", 0.) * 100, "unit": "%"},
-}  # pyright: ignore[reportUnusedExpression]
+res  # pyright: ignore[reportUnusedExpression]

@@ -235,8 +235,9 @@
     antSamples = []; // reset previous samples on new submission
     const input = buildPredictionInput();
     let promises = [
-      //runANTSample(input),
-      runMMT(input), //runNMA(input)
+      runANTSample(input),
+      runMMT(input), 
+      runNMA(input)
     ];
     // repeat ANT sample
     // for (let i = 0; i < 2; i++) {
