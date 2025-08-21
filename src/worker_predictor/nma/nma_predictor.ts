@@ -23,9 +23,7 @@ export class NMAPredictor {
     }
 
     throw new Error(
-      "Failed to predict NMA results",
-
-      result.hasOwnProperty("error") ? result.error : result
+      "Failed to predict NMA results: " + (result.hasOwnProperty("error") ? result.error : JSON.stringify(result))
     );
   }
 }

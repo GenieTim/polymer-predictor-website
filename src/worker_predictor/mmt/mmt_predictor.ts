@@ -26,8 +26,7 @@ export class MMTPredictor implements Predictor {
     }
 
     throw new Error(
-      "Failed to predict MMT results",
-      result.hasOwnProperty("error") ? result.error : result
+      "Failed to predict MMT results: " + (result.hasOwnProperty("error") ? result.error : JSON.stringify(result))
     );
   }
 }

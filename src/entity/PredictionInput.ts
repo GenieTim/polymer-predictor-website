@@ -85,8 +85,8 @@ export class PredictionInput {
   public get mean_bead_distance(): Qty {
     // alpha = 3π/8; returns sqrt( <r^2> / alpha )
     const alpha = (3 * Math.PI) / 8.0;
-    const val = Math.sqrt(this.mean_squared_bead_distance.value / alpha);
-    return { value: val, unit: "nm" };
+    const val = Math.sqrt(this.mean_squared_bead_distance.to("nm^2").scalar / alpha);
+    return Qty(val, "nm");
   }
 
   public get bead_density(): Qty {
@@ -95,7 +95,6 @@ export class PredictionInput {
     const molPerVolume = this.density.div(this.bead_mass);
     const Na = Qty(6.022e23, "1/mol");
     const numberDensity = molPerVolume.mul(Na);
-    numberDensity.unit = "1/cm^3";
     return numberDensity;
   }
 

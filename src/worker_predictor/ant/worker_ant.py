@@ -395,5 +395,8 @@ res = {
 for key, value in res.items():
     if isinstance(value, ureg.Quantity):
         res[key] = value.to("MPa").magnitude if "g_" in key else value.magnitude
+for key, value in res.items():
+    if isinstance(value, np.floating):
+        res[key] = float(value)
 # Final statement is an expression -> value is returned to JavaScript
 res  # pyright: ignore[reportUnusedExpression]

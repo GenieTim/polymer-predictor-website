@@ -6,6 +6,7 @@
    */
   import Qty from "js-quantities";
   import polymerPresetsDict from "../public/polymer-presets.json";
+  import { ANTResults, MMTResults, NMAResults } from "./components";
   import { PredictionInput } from "./entity/PredictionInput";
   import {
     DynamicModulusPredictorOutput,
@@ -33,7 +34,7 @@
   }
 
   // Selected polymer
-  let polymer_name = $state(polymerPresets[0].name);
+  let polymer_name = $state("PDMS");
 
   // ---- Network parameter inputs (user editable) ----
   let stoichiometric_imbalance = $state(1.0); // r
@@ -48,7 +49,13 @@
   // Molecular weights (user editable, converted to bead counts) - rounded to step
   let mw_bifunctional = $state(roundToStep(30 * selectedPolymer.bead_mass));
   let mw_monofunctional = $state(0); // already valid
-  let mw_xlinks = $state(roundToStep(1 * selectedPolymer.bead_mass));
+  let mw_xlinks = $state(0);
+
+  // Initialize molecular weights when polymer changes
+  run(() => {
+    mw_bifunctional = roundToStep(30 * selectedPolymer.bead_mass);
+    mw_xlinks = roundToStep(1 * selectedPolymer.bead_mass);
+  });
   let mw_zerofunctional = 0; // hidden
 
   // Additional synthesis parameters (booleans)
@@ -101,10 +108,13 @@
   // Results & loading flags
   let antSamples: ModulusPredictionOutput[] = $state([]);
   let antLoading = $state(false);
+  let antError = $state<string | null>(null);
   let mmtResult: ModulusPredictionOutput | null = $state(null);
   let mmtLoading = $state(false);
+  let mmtError = $state<string | null>(null);
   let nmaResult: DynamicModulusPredictorOutput | null = $state(null);
   let nmaLoading = $state(false);
+  let nmaError = $state<string | null>(null);
 
   function computeAntAggregate(samples: ModulusPredictionOutput[]) {
     if (!samples.length) return null;
@@ -118,13 +128,13 @@
       const v = vals.reduce((s, x) => s + (x - m) ** 2, 0) / (vals.length - 1);
       return Math.sqrt(v);
     }
-    const phantomVals = samples.map((s) => s.phantom_modulus.value);
-    const entangledVals = samples.map((s) => s.entanglement_modulus.value);
+    const phantomVals = samples.map((s) => s.phantom_modulus.scalar);
+    const entangledVals = samples.map((s) => s.entanglement_modulus.scalar);
     const eqVals = samples.map(
-      (s) => s.phantom_modulus.value + s.entanglement_modulus.value
+      (s) => s.phantom_modulus.scalar + s.entanglement_modulus.scalar
     );
-    const w_solubleVals = samples.map((s) => s.w_soluble.value);
-    const w_danglingVals = samples.map((s) => s.w_dangling.value);
+    const w_solubleVals = samples.map((s) => s.w_soluble.scalar);
+    const w_danglingVals = samples.map((s) => s.w_dangling.scalar);
     return {
       n: samples.length,
       phantom_mean: mean(phantomVals),
@@ -139,7 +149,7 @@
     };
   }
 
-  function buildPredictionInput(): PredictionInput {
+  let predictionInput: PredictionInput = $derived.by(() => {
     // Build quantity helper
     const q = (value: number, unit: string): Qty => Qty(value, unit);
     return new PredictionInput({
@@ -172,18 +182,22 @@
       description,
       polymer_name,
     });
-  }
+  });
 
   async function runMMT(input: PredictionInput) {
     mmtLoading = true;
     mmtResult = null;
+    mmtError = null;
     mmtPredictor ||= new MMTPredictor();
     try {
       mmtResult = await mmtPredictor.predict(input);
       if (mmtResult.hasOwnProperty("error")) {
+        mmtError = `Prediction failed: ${(mmtResult as any).error}`;
+        mmtResult = null;
         console.error("Error occurred while predicting MMT result:", mmtResult);
       }
     } catch (error) {
+      mmtError = error instanceof Error ? error.message : "An unexpected error occurred";
       console.error("Error occurred while predicting MMT result:", error);
     } finally {
       mmtLoading = false;
@@ -193,16 +207,17 @@
   async function runNMA(input: PredictionInput) {
     nmaLoading = true;
     nmaResult = null;
+    nmaError = null;
     nmaPredictor ||= new NMAPredictor();
     try {
       nmaResult = await nmaPredictor.predict(input);
-      if (
-        nmaResult.hasOwnProperty("error") ||
-        !(nmaResult instanceof DynamicModulusPredictorOutput)
-      ) {
+      if (nmaResult.hasOwnProperty("error")) {
+        nmaError = `Prediction failed: ${(nmaResult as any).error}`;
+        nmaResult = null;
         console.error("Error occurred while predicting NMA result:", nmaResult);
       }
     } catch (error) {
+      nmaError = error instanceof Error ? error.message : "An unexpected error occurred";
       console.error("Error occurred while predicting NMA result:", error);
     } finally {
       nmaLoading = false;
@@ -210,20 +225,34 @@
   }
 
   async function runANTSample(input: PredictionInput) {
-    antLoading = true;
     antPredictor ||= new ANTPredictor();
     try {
       const sample = await antPredictor.predict(input);
-      if (
-        sample.hasOwnProperty("error") ||
-        !(sample instanceof ModulusPredictionOutput)
-      ) {
+      if (sample.hasOwnProperty("error")) {
         console.error("Error occurred while predicting ANT sample:", sample);
+        throw new Error(`ANT prediction failed: ${(sample as any).error}`);
       } else {
+        // Use functional update to avoid race conditions with concurrent samples
         antSamples = [...antSamples, sample];
       }
     } catch (error) {
       console.error("Error occurred while predicting ANT sample:", error);
+      throw error; // Re-throw to be caught by caller
+    }
+  }
+
+  async function runMultipleANTSamples(input: PredictionInput, count: number = 3) {
+    antLoading = true;
+    antError = null;
+    const initialSampleCount = antSamples.length;
+    
+    try {
+      // Run multiple samples in parallel
+      const promises = Array.from({ length: count }, () => runANTSample(input));
+      await Promise.all(promises);
+    } catch (error) {
+      antError = error instanceof Error ? error.message : "An unexpected error occurred";
+      console.error("Error occurred while running multiple ANT samples:", error);
     } finally {
       antLoading = false;
     }
@@ -233,34 +262,32 @@
     ev.preventDefault();
     dirty = false;
     antSamples = []; // reset previous samples on new submission
-    const input = buildPredictionInput();
+    
+    // Clear previous errors
+    antError = null;
+    mmtError = null;
+    nmaError = null;
+    
     let promises = [
-      runANTSample(input),
-      runMMT(input), 
-      runNMA(input)
+      runMultipleANTSamples(predictionInput, 3),  // Run 3 ANT samples in parallel
+      runMMT(predictionInput),
+      runNMA(predictionInput),
     ];
-    // repeat ANT sample
-    // for (let i = 0; i < 2; i++) {
-    //   promises.push(runANTSample(input));
-    // }
-    // Launch predictors (ANT one sample first, others once)
+    // Launch all predictors in parallel
     await Promise.all(promises);
   }
 
   async function refineANT() {
     if (dirty) return; // avoid refining outdated input
-    const input = buildPredictionInput();
-    await runANTSample(input);
+    try {
+      await runANTSample(predictionInput);
+    } catch (error) {
+      antError = error instanceof Error ? error.message : "An unexpected error occurred";
+    }
   }
 
   function format2(v?: number) {
     return v == null || !isFinite(v) ? "-" : v.toFixed(2);
-  }
-
-  function myQtyFormatter(scalar: number, unit: string): string {
-    return scalar == null || !isFinite(scalar)
-      ? "-"
-      : `${scalar.toFixed(2)} ${unit}`.trim();
   }
 
   let { n_bifunctional_chains, n_monofunctional_chains } = $derived(
@@ -581,180 +608,27 @@
         class="prediction-cards d-flex flex-column gap-3"
       >
         <!-- ANT Results -->
-        <div id="ant-results" class:not-current={dirty}>
-          <div class="card">
-            <div class="card-header"><h5 class="mb-0">ANT Estimates</h5></div>
-            <div class="card-body">
-              {#if antLoading && !antAggregate}
-                <p>Computing ANT...</p>
-              {:else if antAggregate}
-                <div class="text-center p-3 bg-success text-white rounded mb-3">
-                  <h3 class="mb-0">
-                    <i>G</i><sub>eq</sub> = {format2(antAggregate.eq_mean)}
-                    {#if antAggregate.eq_std > 0}<span class="error"
-                        >± {format2(antAggregate.eq_std)}</span
-                      >{/if} <span class="unit">MPa</span>
-                  </h3>
-                </div>
-                <div class="row mb-3">
-                  <div class="col-6">
-                    <div class="text-center p-2 bg-light rounded">
-                      <small class="text-muted d-block">Phantom</small>
-                      <strong>{format2(antAggregate.phantom_mean)}</strong>
-                      {#if antAggregate.phantom_std > 0}<span class="error"
-                          >± {format2(antAggregate.phantom_std)}</span
-                        >{/if}
-                      <small class="text-muted unit">MPa</small>
-                    </div>
-                  </div>
-                  <div class="col-6">
-                    <div class="text-center p-2 bg-light rounded">
-                      <small class="text-muted d-block">Entangled</small>
-                      <strong>{format2(antAggregate.entangled_mean)}</strong>
-                      {#if antAggregate.entangled_std > 0}<span class="error"
-                          >± {format2(antAggregate.entangled_std)}</span
-                        >{/if}
-                      <small class="text-muted unit">MPa</small>
-                    </div>
-                  </div>
-                </div>
-                <div class="border-top pt-3">
-                  <h6 class="text-muted mb-2">Weight Fractions</h6>
-                  <div class="row">
-                    <div class="col-sm-4">
-                      <span
-                        ><i>w</i><sub>soluble</sub> =
-                        <span class="badge" title="soluble"
-                          >{format2(antAggregate.w_soluble_mean)}</span
-                        ></span
-                      >
-                    </div>
-                    <div class="col-sm-4">
-                      <span
-                        ><i>w</i><sub>dangling</sub> =
-                        <span class="badge" title="dangling"
-                          >{format2(antAggregate.w_dangling_mean)}</span
-                        ></span
-                      >
-                    </div>
-                    <div class="col-sm-4">
-                      <span
-                        ><i>w</i><sub>backbone</sub> =
-                        <span class="badge" title="backbone"
-                          >{format2(antAggregate.w_backbone_mean)}</span
-                        ></span
-                      >
-                    </div>
-                  </div>
-                </div>
-                {#if antLoading}<p class="mt-2 text-muted">Refining...</p>{/if}
-              {:else}
-                <p>ANT results will appear here.</p>
-              {/if}
-            </div>
-          </div>
-        </div>
+        <ANTResults samples={antSamples} loading={antLoading} {dirty} error={antError} />
 
         <!-- MMT Results -->
-        <div id="mmt-results" class:not-current={dirty}>
-          <div class="card">
-            <div class="card-header"><h5 class="mb-0">MMT Prediction</h5></div>
-            <div class="card-body">
-              {#if mmtLoading}
-                <p>Computing MMT...</p>
-              {:else if mmtResult}
-                <p>
-                  <strong>G<sub>eq</sub></strong>: {mmtResult.modulus.format(
-                    myQtyFormatter
-                  )}
-                </p>
-                <p class="mb-1">
-                  <small
-                    >Phantom: {mmtResult.phantom_modulus.format(myQtyFormatter)} MPa | Entangled:
-                    {mmtResult.entanglement_modulus.format(myQtyFormatter)} MPa</small
-                  >
-                </p>
-                <p class="mb-0">
-                  <small
-                    >w<sub>soluble</sub>: {mmtResult.w_soluble.format(myQtyFormatter)} |
-                    w<sub>dangling</sub>: {mmtResult.w_dangling.format(myQtyFormatter)} |
-                    w<sub>backbone</sub>: {mmtResult.w_active.format(myQtyFormatter)}</small
-                  >
-                </p>
-              {:else}
-                <p>MMT result will appear here.</p>
-              {/if}
-            </div>
-          </div>
-        </div>
+        <MMTResults
+          result={mmtResult}
+          loading={mmtLoading}
+          {dirty}
+          error={mmtError}
+          {predictionInput}
+        />
 
         <!-- NMA (Dynamic Modulus) Results -->
-        <div id="nma-results" class:not-current={dirty}>
-          <div class="card">
-            <div class="card-header">
-              <h5 class="mb-0">NMA Dynamic Modulus</h5>
-            </div>
-            <div class="card-body">
-              {#if nmaLoading}
-                <p>Computing NMA...</p>
-              {:else if nmaResult}
-                <p>Frequencies: {nmaResult.frequencies.length}</p>
-                <p>
-                  <small
-                    >First freq: {format2(nmaResult.frequencies[0])} | G' first:
-                    {format2(nmaResult.g_prime[0])}</small
-                  >
-                </p>
-              {:else}
-                <p>NMA result will appear here.</p>
-              {/if}
-            </div>
-          </div>
-        </div>
+        <NMAResults result={nmaResult} loading={nmaLoading} {dirty} error={nmaError} />
       </div>
     </div>
   </div>
 </div>
 
 <style>
-  .not-current {
-    opacity: 0.5;
-    filter: grayscale(40%);
-  }
-  .prediction-cards > div {
-    margin-bottom: 1rem;
-  }
-  .error {
-    color: #dc3545;
-    font-size: 0.9em;
-    margin-left: 0.25rem;
-  }
-  .unit {
-    margin-left: 0.25rem;
-    font-size: 0.85em;
-  }
   details summary {
     cursor: pointer;
-  }
-  .card {
-    border: 1px solid var(--hm-border-color, #ccc);
-    border-radius: 0.5rem;
-  }
-  .card-header {
-    padding: 0.75rem 1rem;
-    border-bottom: 1px solid var(--hm-border-color, #ccc);
-    background: var(--hm-card-header-bg, #f7f7f9);
-  }
-  .card-body {
-    padding: 1rem;
-  }
-  .badge {
-    display: inline-block;
-    padding: 0.35em 0.6em;
-    border-radius: 0.5rem;
-    background: #6c757d;
-    color: #fff;
-    font-size: 0.75rem;
   }
   form h3 {
     margin-top: 1.5rem;

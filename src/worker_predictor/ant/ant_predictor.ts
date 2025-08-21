@@ -32,8 +32,7 @@ export class ANTPredictor implements Predictor {
     }
 
     throw new Error(
-      "Failed to predict ANT results",
-      result.hasOwnProperty("error") ? result.error : result
+      "Failed to predict ANT results: " + (result.hasOwnProperty("error") ? result.error : JSON.stringify(result))
     );
   }
 }

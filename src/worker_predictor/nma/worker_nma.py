@@ -127,7 +127,7 @@ assert (
 results = predict_normal_mode_results(prediction_input.as_object_map(hereditary=True))
 # Final statement is an expression -> value is returned to JavaScript
 {
-    "frequencies": results["frequencies"],
-    "g_prime": results["storage_modulus"],
-    "g_double_prime": results["loss_modulus"],
+    "frequencies": results["frequencies"].tolist(),
+    "g_prime": results["storage_modulus"].tolist(),
+    "g_double_prime": results["loss_modulus"].tolist(),
 }  # pyright: ignore[reportUnusedExpression]
