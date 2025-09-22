@@ -1,5 +1,5 @@
 import { loadPyodide } from "https://cdn.jsdelivr.net/pyodide/v0.28.1/full/pyodide.mjs";
-import pylimerTools from "../public/pylimer_tools-0.3.4-cp313-cp313-pyodide_2025_0_wasm32.whl?url";
+import pylimerTools from "../public/pylimer_tools-0.3.10-cp313-cp313-pyodide_2025_0_wasm32.whl?url";
 
 let pyodideReadyPromise = loadPyodide();
 let isInitialized = false;

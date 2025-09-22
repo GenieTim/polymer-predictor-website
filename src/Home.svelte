@@ -1,3 +1,7 @@
+<script>
+  import FeatureWarning from "./components/FeatureWarning.svelte";
+
+</script>
 <div class="container-fluid">
   <!-- Hero Section -->
   <div class="row">
@@ -67,6 +71,9 @@
     </div>
   </div>
 
+  <!-- Feature Warning Section -->
+  <FeatureWarning />
+
   <!-- About Section -->
   <div class="row mt-4">
     <div class="col-12">
@@ -90,7 +97,6 @@
 
   <!-- Explanation & Contact Section -->
   <div class="row mt-4">
-
     <div class="col-lg-6">
       <div class="card h-100">
         <div class="card-header">
@@ -138,7 +144,7 @@
         </div>
       </div>
     </div>
-    
+
     <div class="col-lg-6">
       <div class="card">
         <div class="card-header">

@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { Snippet } from "svelte";
+  import newGithubIssueUrl from "new-github-issue-url";
 
   interface Props {
     title: string;
@@ -13,17 +14,24 @@
     children: Snippet;
   }
 
-  let { 
-    title, 
-    loading, 
-    dirty, 
-    loadingText = "Computing...", 
-    emptyText = "Results will appear here.", 
+  let {
+    title,
+    loading,
+    dirty,
+    loadingText = "Computing...",
+    emptyText = "Results will appear here.",
     hasResult,
     error = null,
     id,
-    children 
+    children,
   }: Props = $props();
+
+  let errorUrl = newGithubIssueUrl({
+    user: "GenieTim",
+    repo: "pylimer-predictor-website",
+    title: `Error in ${title}`,
+    body: `An error occurred:\n\n\`\`\`\n${error}\n\`\`\``,
+  });
 </script>
 
 <div {id} class:not-current={dirty} class="prediction">
@@ -35,7 +43,9 @@
       {#if error}
         <div class="alert alert-danger">
           <i class="fas fa-exclamation-triangle"></i>
-          <strong>Error:</strong> {error}
+          <strong>Error:</strong>
+          {error}
+          <a href={errorUrl} class="btn btn-link">Report Issue</a>
         </div>
       {:else if loading && !hasResult}
         <p>{loadingText}</p>

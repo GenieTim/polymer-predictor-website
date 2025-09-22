@@ -15,6 +15,10 @@
   import { ANTPredictor } from "./worker_predictor/ant/ant_predictor";
   import { MMTPredictor } from "./worker_predictor/mmt/mmt_predictor";
   import { NMAPredictor } from "./worker_predictor/nma/nma_predictor";
+  import FeatureWarning from "./components/FeatureWarning.svelte";
+
+  // config
+  const n_rep_ANT = 5;
 
   // ---- Polymer definitions (placeholder until dynamic source added) ----
   interface PolymerPreset {
@@ -116,6 +120,10 @@
   let nmaLoading = $state(false);
   let nmaError = $state<string | null>(null);
 
+  // Progress tracking
+  let progressValue = $state(0);
+  let isAnyLoading = $derived(antLoading || mmtLoading || nmaLoading);
+
   function computeAntAggregate(samples: ModulusPredictionOutput[]) {
     if (!samples.length) return null;
     console.log("Got ", samples);
@@ -197,10 +205,12 @@
         console.error("Error occurred while predicting MMT result:", mmtResult);
       }
     } catch (error) {
-      mmtError = error instanceof Error ? error.message : "An unexpected error occurred";
+      mmtError =
+        error instanceof Error ? error.message : "An unexpected error occurred";
       console.error("Error occurred while predicting MMT result:", error);
     } finally {
       mmtLoading = false;
+      incrementProgress();
     }
   }
 
@@ -217,10 +227,12 @@
         console.error("Error occurred while predicting NMA result:", nmaResult);
       }
     } catch (error) {
-      nmaError = error instanceof Error ? error.message : "An unexpected error occurred";
+      nmaError =
+        error instanceof Error ? error.message : "An unexpected error occurred";
       console.error("Error occurred while predicting NMA result:", error);
     } finally {
       nmaLoading = false;
+      incrementProgress();
     }
   }
 
@@ -241,36 +253,53 @@
     }
   }
 
-  async function runMultipleANTSamples(input: PredictionInput, count: number = 3) {
+  async function runMultipleANTSamples(input: PredictionInput) {
     antLoading = true;
     antError = null;
     const initialSampleCount = antSamples.length;
-    
+
     try {
       // Run multiple samples in parallel
-      const promises = Array.from({ length: count }, () => runANTSample(input));
+      const promises = Array.from({ length: n_rep_ANT }, () =>
+        runANTSample(input).finally(() => {
+          incrementProgress();
+        })
+      );
       await Promise.all(promises);
     } catch (error) {
-      antError = error instanceof Error ? error.message : "An unexpected error occurred";
-      console.error("Error occurred while running multiple ANT samples:", error);
+      antError =
+        error instanceof Error ? error.message : "An unexpected error occurred";
+      console.error(
+        "Error occurred while running multiple ANT samples:",
+        error
+      );
     } finally {
       antLoading = false;
     }
+  }
+
+  function incrementProgress() {
+    const total = 2 + n_rep_ANT; // ANT, MMT, NMA
+
+    progressValue += Math.round((1 / total) * 100);
   }
 
   async function onSubmit(ev: Event) {
     ev.preventDefault();
     dirty = false;
     antSamples = []; // reset previous samples on new submission
-    
+
     // Clear previous errors
     antError = null;
     mmtError = null;
     nmaError = null;
-    
+
+    // Reset progress
+    progressValue = 0;
+
     let promises = [
-      runMultipleANTSamples(predictionInput, 3),  // Run 3 ANT samples in parallel
       runMMT(predictionInput),
+      runMultipleANTSamples(predictionInput),
       runNMA(predictionInput),
     ];
     // Launch all predictors in parallel
@@ -279,10 +308,19 @@
 
   async function refineANT() {
     if (dirty) return; // avoid refining outdated input
+
+    // Set loading state for progress tracking
+    antLoading = true;
+    progressValue = 0; // Reset progress for single refinement
+
     try {
       await runANTSample(predictionInput);
     } catch (error) {
-      antError = error instanceof Error ? error.message : "An unexpected error occurred";
+      antError =
+        error instanceof Error ? error.message : "An unexpected error occurred";
+    } finally {
+      antLoading = false;
+      progressValue = 100; // Complete the progress for single operation
     }
   }
 
@@ -339,6 +377,8 @@
 </script>
 
 <div class="container">
+  <FeatureWarning />
+
   <div class="row">
     <div class="column col-sm-6">
       <h2>Input</h2>
@@ -595,6 +635,24 @@
 
     <div class="column col-12 col-sm-6">
       <h2>Prediction</h2>
+
+      <!-- Progress Bar -->
+      {#if isAnyLoading}
+        <div
+          class="progress mb-3"
+          role="progressbar"
+          aria-label="Prediction progress"
+          aria-valuenow={progressValue}
+          aria-valuemin="0"
+          aria-valuemax="100"
+        >
+          <div class="progress-bar" style="width: {progressValue}%"></div>
+        </div>
+        <p class="text-muted small mb-3">
+          Running predictions... {progressValue}% complete
+        </p>
+      {/if}
+
       <p>
         Choose parameters and click on "Predict". Results are computed locally
         in your browser.
@@ -608,7 +666,12 @@
         class="prediction-cards d-flex flex-column gap-3"
       >
         <!-- ANT Results -->
-        <ANTResults samples={antSamples} loading={antLoading} {dirty} error={antError} />
+        <ANTResults
+          samples={antSamples}
+          loading={antLoading}
+          {dirty}
+          error={antError}
+        />
 
         <!-- MMT Results -->
         <MMTResults
@@ -620,7 +683,12 @@
         />
 
         <!-- NMA (Dynamic Modulus) Results -->
-        <NMAResults result={nmaResult} loading={nmaLoading} {dirty} error={nmaError} />
+        <NMAResults
+          result={nmaResult}
+          loading={nmaLoading}
+          {dirty}
+          error={nmaError}
+        />
       </div>
     </div>
   </div>
