@@ -107,15 +107,6 @@ export class PredictionInput {
     );
   }
 
-  public get n_beads_total(): number {
-    return (
-      this.n_beads_bifunctional * this.n_bifunctional_chains +
-      this.n_beads_monofunctional * this.n_monofunctional_chains +
-      this.n_beads_zerofunctional * this.n_zerofunctional_chains +
-      this.n_beads_xlinks * this.n_chains_crosslinks
-    );
-  }
-
   public get total_n_beads_solvent(): number {
     return this.n_beads_zerofunctional * this.n_zerofunctional_chains;
   }
@@ -130,6 +121,24 @@ export class PredictionInput {
 
   public get total_n_beads_xlinks(): number {
     return this.n_beads_xlinks * this.n_chains_crosslinks;
+  }
+
+  public get n_beads_total(): number {
+    return (
+      this.total_n_beads_bifunctional +
+      this.total_n_beads_monofunctional +
+      this.total_n_beads_solvent +
+      this.total_n_beads_xlinks
+    );
+  }
+
+  public get n_chains_total(): number {
+    return (
+      this.n_bifunctional_chains +
+      this.n_monofunctional_chains +
+      this.n_zerofunctional_chains +
+      this.n_chains_crosslinks
+    );
   }
 
   is_mmtable(): boolean {

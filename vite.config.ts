@@ -10,4 +10,17 @@ const isCI = process.env.GITHUB_ACTIONS === 'true'
 export default defineConfig({
   plugins: [svelte()],
   base: isCI ? `/${repoName}/` : '/',
+  server: {
+    headers: {
+      // Required headers for SharedArrayBuffer and WASM
+      'Cross-Origin-Embedder-Policy': 'require-corp',
+      'Cross-Origin-Opener-Policy': 'same-origin',
+    },
+  },
+  optimizeDeps: {
+    exclude: ['onnxruntime-web'],
+  },
+  worker: {
+    format: 'es',
+  },
 })

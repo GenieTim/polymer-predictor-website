@@ -6,7 +6,7 @@
    */
   import Qty from "js-quantities";
   import polymerPresetsDict from "../public/polymer-presets.json";
-  import { ANTResults, MMTResults, NMAResults } from "./components";
+  import { ANTResults, MMTResults, NMAResults, NNResults } from "./components";
   import { PredictionInput } from "./entity/PredictionInput";
   import {
     DynamicModulusPredictorOutput,
@@ -15,6 +15,7 @@
   import { ANTPredictor } from "./worker_predictor/ant/ant_predictor";
   import { MMTPredictor } from "./worker_predictor/mmt/mmt_predictor";
   import { NMAPredictor } from "./worker_predictor/nma/nma_predictor";
+  import { NNPredictor } from "./worker_predictor/nn/nn_predictor";
   import FeatureWarning from "./components/FeatureWarning.svelte";
 
   // config
@@ -108,6 +109,7 @@
   let antPredictor: ANTPredictor | null = null;
   let mmtPredictor: MMTPredictor | null = null;
   let nmaPredictor: NMAPredictor | null = null;
+  let nnPredictor: NNPredictor | null = null;
 
   // Results & loading flags
   let antSamples: ModulusPredictionOutput[] = $state([]);
@@ -119,10 +121,13 @@
   let nmaResult: DynamicModulusPredictorOutput | null = $state(null);
   let nmaLoading = $state(false);
   let nmaError = $state<string | null>(null);
+  let nnResult: ModulusPredictionOutput | null = $state(null);
+  let nnLoading = $state(false);
+  let nnError = $state<string | null>(null);
 
   // Progress tracking
   let progressValue = $state(0);
-  let isAnyLoading = $derived(antLoading || mmtLoading || nmaLoading);
+  let isAnyLoading = $derived(antLoading || mmtLoading || nmaLoading || nnLoading);
 
   function computeAntAggregate(samples: ModulusPredictionOutput[]) {
     if (!samples.length) return null;
@@ -236,6 +241,28 @@
     }
   }
 
+  async function runNN(input: PredictionInput) {
+    nnLoading = true;
+    nnResult = null;
+    nnError = null;
+    nnPredictor ||= new NNPredictor();
+    try {
+      nnResult = await nnPredictor.predict(input);
+      if (nnResult.hasOwnProperty("error")) {
+        nnError = `Prediction failed: ${(nnResult as any).error}`;
+        nnResult = null;
+        console.error("Error occurred while predicting NN result:", nnResult);
+      }
+    } catch (error) {
+      nnError =
+        error instanceof Error ? error.message : "An unexpected error occurred";
+      console.error("Error occurred while predicting NN result:", error);
+    } finally {
+      nnLoading = false;
+      incrementProgress();
+    }
+  }
+
   async function runANTSample(input: PredictionInput) {
     antPredictor ||= new ANTPredictor();
     try {
@@ -279,7 +306,7 @@
   }
 
   function incrementProgress() {
-    const total = 2 + n_rep_ANT; // ANT, MMT, NMA
+    const total = 3 + n_rep_ANT; // ANT, MMT, NMA, NN
 
     progressValue += Math.round((1 / total) * 100);
   }
@@ -293,6 +320,7 @@
     antError = null;
     mmtError = null;
     nmaError = null;
+    nnError = null;
 
     // Reset progress
     progressValue = 0;
@@ -301,6 +329,7 @@
       runMMT(predictionInput),
       runMultipleANTSamples(predictionInput),
       runNMA(predictionInput),
+      runNN(predictionInput),
     ];
     // Launch all predictors in parallel
     await Promise.all(promises);
@@ -688,6 +717,14 @@
           loading={nmaLoading}
           {dirty}
           error={nmaError}
+        />
+
+        <!-- Neural Network Results -->
+        <NNResults
+          result={nnResult}
+          loading={nnLoading}
+          {dirty}
+          error={nnError}
         />
       </div>
     </div>
