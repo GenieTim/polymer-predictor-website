@@ -1,7 +1,10 @@
 <script>
   import FeatureWarning from "./components/FeatureWarning.svelte";
+  import { getBasePath } from "./utils/basePath";
 
+  let predictorLink = getBasePath() + "/predictor";
 </script>
+
 <div class="container-fluid">
   <!-- Hero Section -->
   <div class="row">
@@ -14,7 +17,7 @@
             polymer properties.
           </p>
 
-          <a href="/predictor" class="btn btn-primary btn-lg">
+          <a href={predictorLink} class="btn btn-primary btn-lg">
             <i class="fas fa-chart-line"></i>
             Start Predictions
           </a>
