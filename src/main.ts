@@ -8,7 +8,28 @@ import App from "./App.svelte";
 import Home from "./Home.svelte";
 import NotFound from "./NotFound.svelte";
 
-const currentRoute = window.location.pathname;
+// Get the base path from Vite's configuration
+const basePath = import.meta.env.BASE_URL;
+
+// Get current route - check hash first (for GitHub Pages redirects), then pathname
+let currentRoute = '/';
+
+if (window.location.hash.startsWith('#/')) {
+  // Hash-based routing (from GitHub Pages 404 redirect)
+  currentRoute = window.location.hash.slice(1);
+} else {
+  // Regular path-based routing
+  const fullPath = window.location.pathname;
+  currentRoute = fullPath.startsWith(basePath) 
+    ? fullPath.slice(basePath.length - 1) 
+    : fullPath;
+}
+
+// Ensure route starts with /
+if (!currentRoute.startsWith('/')) {
+  currentRoute = '/' + currentRoute;
+}
+
 let app = null;
 
 switch (currentRoute) {

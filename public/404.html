@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Redirecting...</title>
+  <script>
+    // Simple redirect for GitHub Pages SPA
+    // Redirects /pylimer-predictor-website/predictor to /pylimer-predictor-website/#/predictor
+    var l = window.location;
+    var basePath = '/pylimer-predictor-website/';
+    
+    if (l.pathname.startsWith(basePath)) {
+      var route = l.pathname.slice(basePath.length);
+      if (route && route !== '') {
+        l.replace(basePath + '#/' + route + l.search + l.hash);
+      } else {
+        l.replace(basePath);
+      }
+    } else {
+      // Fallback to root
+      l.replace('/');
+    }
+  </script>
+</head>
+<body>
+  <noscript>
+    <meta http-equiv="refresh" content="0; url="/pylimer-predictor-website/" />
+  </noscript>
+</body>
+</html>
