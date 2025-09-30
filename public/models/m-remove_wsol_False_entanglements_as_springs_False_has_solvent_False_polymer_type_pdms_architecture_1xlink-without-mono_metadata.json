@@ -1,0 +1,86 @@
+{
+  "input_features": [
+    "r",
+    "p",
+    "Mw [kg/mol]",
+    "Mw [kg/mol] monofunctional chains",
+    "functionality_per_xlink_chain",
+    "functionalize_discrete"
+  ],
+  "output_features": [
+    "G [MPa] from gamma Mean, Entangled FB No Slipping",
+    "Phantom, FB/FR, G_ANT [MPa]",
+    "dangling_fraction Mean, Entangled FB No Slipping",
+    "soluble_fraction Mean, Entangled FB No Slipping"
+  ],
+  "model_key": "remove_wsol_False_entanglements_as_springs_False_has_solvent_False_polymer_type_pdms_architecture_1xlink-without-mono",
+  "input_size": 6,
+  "output_size": 4,
+  "input_scaler": {
+    "type": "CustomScaler",
+    "bin_vars_index": [
+      5
+    ],
+    "cont_vars_index": [
+      0,
+      1,
+      2,
+      3,
+      4
+    ],
+    "log_y": true,
+    "standard_scaler": {
+      "with_mean": true,
+      "with_std": true,
+      "mean_": [
+        1.2205282719544936,
+        0.7139375788667665,
+        25.261785983457926,
+        0.0,
+        4.39427855458221
+      ],
+      "scale_": [
+        0.38029833078961506,
+        0.16302443385077806,
+        13.695199177866026,
+        1.0,
+        0.8872983603565612
+      ],
+      "var_": [
+        0.14462682040136748,
+        0.02657696603236671,
+        187.5584805214223,
+        0.0,
+        0.787298380291442
+      ]
+    }
+  },
+  "target_scaler": {
+    "type": "TargetScaler",
+    "log_vars_index": [
+      0,
+      1
+    ],
+    "log1p_vars_index": [],
+    "exclude_vars_index": [
+      2,
+      3
+    ],
+    "standard_scaler": {
+      "with_mean": true,
+      "with_std": true,
+      "mean_": [
+        -2.954904017055285,
+        -4.494690308939957
+      ],
+      "scale_": [
+        0.9961836589679431,
+        1.1566286060894544
+      ],
+      "var_": [
+        0.9923818823947592,
+        1.337789732424434
+      ]
+    }
+  }
+}

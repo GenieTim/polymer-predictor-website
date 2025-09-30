@@ -1,0 +1,103 @@
+{
+  "input_features": [
+    "r",
+    "p",
+    "b2",
+    "Mw [kg/mol]",
+    "Mw [kg/mol] monofunctional chains",
+    "Mw [kg/mol] xlink chains",
+    "functionality_per_xlink_chain",
+    "monofunctional_fraction_of_beads",
+    "bifunctional_fraction_of_beads"
+  ],
+  "output_features": [
+    "G [MPa] from gamma Mean, Entangled FB No Slipping",
+    "Phantom, FB/FR, G_ANT [MPa]",
+    "dangling_fraction Mean, Entangled FB No Slipping",
+    "soluble_fraction Mean, Entangled FB No Slipping"
+  ],
+  "model_key": "remove_wsol_False_functionalize_discrete_False_entanglements_as_springs_False_has_solvent_False_polymer_type_pdms_architecture_long-xlinks",
+  "input_size": 9,
+  "output_size": 4,
+  "input_scaler": {
+    "type": "CustomScaler",
+    "bin_vars_index": [],
+    "cont_vars_index": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8
+    ],
+    "log_y": true,
+    "standard_scaler": {
+      "with_mean": true,
+      "with_std": true,
+      "mean_": [
+        1.0004949543852049,
+        0.7355621499350217,
+        0.5497691907254249,
+        56.69403155248251,
+        29.473572623158947,
+        54.65471690043319,
+        87.59046984338553,
+        0.4307063018483839,
+        0.5312685728970343
+      ],
+      "scale_": [
+        1.2912996635223195,
+        0.2063499804728441,
+        0.21209230715426694,
+        23.26834067464711,
+        24.41623192408606,
+        24.157386887354907,
+        27.210814388265117,
+        0.2541176296263514,
+        0.2365360950214657
+      ],
+      "var_": [
+        1.6674548210128555,
+        0.04258031444114315,
+        0.04498314675401991,
+        541.4156777514371,
+        596.1523813707593,
+        583.5793412253468,
+        740.4284196726159,
+        0.06457576968691553,
+        0.05594932424800384
+      ]
+    }
+  },
+  "target_scaler": {
+    "type": "TargetScaler",
+    "log_vars_index": [
+      0,
+      1
+    ],
+    "log1p_vars_index": [],
+    "exclude_vars_index": [
+      2,
+      3
+    ],
+    "standard_scaler": {
+      "with_mean": true,
+      "with_std": true,
+      "mean_": [
+        -5.20666502534214,
+        -5.761387807231102
+      ],
+      "scale_": [
+        1.1933546990269142,
+        1.027515696182111
+      ],
+      "var_": [
+        1.4240954376896169,
+        1.0557885059006082
+      ]
+    }
+  }
+}
