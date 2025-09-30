@@ -35,6 +35,6 @@ for i, row in everaers_data.iterrows():
     }
 
 with open(
-    os.path.join(os.path.dirname(__file__), "../public", "polymer-presets.json"), "w"
+    os.path.join(os.path.dirname(__file__), "../src", "polymer-presets.json"), "w"
 ) as f:
     json.dump(params, f, indent=4)

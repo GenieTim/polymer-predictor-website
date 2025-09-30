@@ -4,6 +4,7 @@ import type { Predictor } from "../predictor";
 import Qty from "js-quantities";
 import * as ort from "onnxruntime-web";
 import { CustomScaler, TargetScaler, type ModelMetadata } from "./scaler";
+import { getAssetPath } from "../../utils/basePath";
 
 interface ModelConfig {
   modelPath: string;
@@ -62,28 +63,32 @@ export class NNPredictor implements Predictor {
       // Uses specialized model trained on subset with fewer parameters for better performance
       if (input.n_beads_xlinks === 1 && input.n_monofunctional_chains === 0) {
         return {
-          modelPath:
-            "/models/m-remove_wsol_False_entanglements_as_springs_False_has_solvent_False_polymer_type_pdms_architecture_1xlink-without-mono.onnx",
-          metadataPath:
-            "/models/m-remove_wsol_False_entanglements_as_springs_False_has_solvent_False_polymer_type_pdms_architecture_1xlink-without-mono_metadata.json",
+          modelPath: getAssetPath(
+            "models/m-remove_wsol_False_entanglements_as_springs_False_has_solvent_False_polymer_type_pdms_architecture_1xlink-without-mono.onnx"
+          ),
+          metadataPath: getAssetPath(
+            "models/m-remove_wsol_False_entanglements_as_springs_False_has_solvent_False_polymer_type_pdms_architecture_1xlink-without-mono_metadata.json"
+          ),
         };
       }
       // For PDMS: n_beads_xlinks > 1
       // Uses specialized model for long crosslink configurations
       else if (input.n_beads_xlinks > 1) {
         return {
-          modelPath:
-            "/models/m-remove_wsol_False_functionalize_discrete_False_entanglements_as_springs_False_has_solvent_False_polymer_type_pdms_architecture_long-xlinks.onnx",
-          metadataPath:
-            "/models/m-remove_wsol_False_functionalize_discrete_False_entanglements_as_springs_False_has_solvent_False_polymer_type_pdms_architecture_long-xlinks_metadata.json",
+          modelPath: getAssetPath(
+            "models/m-remove_wsol_False_functionalize_discrete_False_entanglements_as_springs_False_has_solvent_False_polymer_type_pdms_architecture_long-xlinks.onnx"
+          ),
+          metadataPath: getAssetPath(
+            "models/m-remove_wsol_False_functionalize_discrete_False_entanglements_as_springs_False_has_solvent_False_polymer_type_pdms_architecture_long-xlinks_metadata.json"
+          ),
         };
       }
     }
 
     // Fallback to general model for non-PDMS polymers or other PDMS configurations
     return {
-      modelPath: "/models/m-.onnx",
-      metadataPath: "/models/m-_metadata.json",
+      modelPath: getAssetPath("models/m-.onnx"),
+      metadataPath: getAssetPath("models/m-_metadata.json"),
     };
   }
 
