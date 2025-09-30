@@ -1,47 +1,71 @@
-# Svelte + TS + Vite
+# Pylimer Predictor Website
 
-This template should help get you started developing with Svelte and TypeScript in Vite.
+A web application for predicting polymer properties using physics-based and machine learning methods. Built with Svelte, TypeScript, and Vite.
 
-## Recommended IDE Setup
+## Features
 
-[VS Code](https://code.visualstudio.com/) + [Svelte](https://marketplace.visualstudio.com/items?itemName=svelte.svelte-vscode).
+- **Neural Network Predictions**: Machine learning models for polymer property estimation
+- **MMT Property Analysis**: Mean-field theory calculations for polymer networks
+- **ANT Force Balance**: Advanced numerical techniques for polymer mechanics
+- **Normal Mode Analysis**: Dynamic modulus predictions through vibrational analysis
+- **Client-side Processing**: All computations run locally using WebAssembly
+- **Multiple Polymer Types**: Support for PDMS and other polymer systems
 
-## Need an official Svelte framework?
+## Getting Started
 
-Check out [SvelteKit](https://github.com/sveltejs/kit#readme), which is also powered by Vite. Deploy anywhere with its serverless-first approach and adapt to various platforms, with out of the box support for TypeScript, SCSS, and Less, and easily-added support for mdsvex, GraphQL, PostCSS, Tailwind CSS, and more.
+The installation of this website is available at [polymer-predictor.ethz.ch](https://polymer-predictor.ethz.ch).
+The following information is for developers who want to build/modify/run/host the website themselves.
 
-## Technical considerations
+### Prerequisites
 
-**Why use this over SvelteKit?**
+- Node.js 18 or higher
+- Modern browser with WebAssembly support
 
-- It brings its own routing solution which might not be preferable for some users.
-- It is first and foremost a framework that just happens to use Vite under the hood, not a Vite app.
+### Installation
 
-This template contains as little as possible to get started with Vite + TypeScript + Svelte, while taking into account the developer experience with regards to HMR and intellisense. It demonstrates capabilities on par with the other `create-vite` templates and is a good starting point for beginners dipping their toes into a Vite + Svelte project.
-
-Should you later need the extended capabilities and extensibility provided by SvelteKit, the template has been structured similarly to SvelteKit so that it is easy to migrate.
-
-**Why `global.d.ts` instead of `compilerOptions.types` inside `jsconfig.json` or `tsconfig.json`?**
-
-Setting `compilerOptions.types` shuts out all other types not explicitly listed in the configuration. Using triple-slash references keeps the default TypeScript setting of accepting type information from the entire workspace, while also adding `svelte` and `vite/client` type information.
-
-**Why include `.vscode/extensions.json`?**
-
-Other templates indirectly recommend extensions via the README, but this file allows VS Code to prompt the user to install the recommended extension upon opening the project.
-
-**Why enable `allowJs` in the TS template?**
-
-While `allowJs: false` would indeed prevent the use of `.js` files in the project, it does not prevent the use of JavaScript syntax in `.svelte` files. In addition, it would force `checkJs: false`, bringing the worst of both worlds: not being able to guarantee the entire codebase is TypeScript, and also having worse typechecking for the existing JavaScript. In addition, there are valid use cases in which a mixed codebase may be relevant.
-
-**Why is HMR not preserving my local component state?**
-
-HMR state preservation comes with a number of gotchas! It has been disabled by default in both `svelte-hmr` and `@sveltejs/vite-plugin-svelte` due to its often surprising behavior. You can read the details [here](https://github.com/rixo/svelte-hmr#svelte-hmr).
-
-If you have state that's important to retain within a component, consider creating an external store which would not be replaced by HMR.
-
-```ts
-// store.ts
-// An extremely simple external store
-import { writable } from 'svelte/store'
-export default writable(0)
+```bash
+npm install
 ```
+
+### Development
+
+```bash
+npm run dev
+```
+
+### Build
+
+```bash
+npm run build
+```
+
+### Preview
+
+```bash
+npm run preview
+```
+
+## Architecture
+
+The application uses WebAssembly builds of the [pylimer-tools](https://github.com/GenieTim/pylimer-tools) library to perform polymer property calculations entirely in the browser. This ensures:
+
+- Complete data privacy (no server communication)
+- Fast local computation
+- Offline capability once loaded
+
+## Key Components
+
+- **Prediction Interface**: Interactive form for setting polymer parameters
+- **Multiple Predictors**: ANT, MMT, NMA, and Neural Network methods
+- **Real-time Results**: Live updates as predictions complete
+- **Progress Tracking**: Visual feedback during computation
+
+## Related Research
+
+- [MMT Analysis](https://doi.org/10.1021/acs.macromol.3c02544)
+- [Force Balance Procedure](https://doi.org/10.1021/acspolymersau.5c00036)
+- [Normal Mode Analysis](https://doi.org/10.1021/acs.macromol.4c01429)
+
+## Contributing
+
+Issues and pull requests are welcome. See the [GitHub repository](https://github.com/GenieTim/pylimer-predictor-website) for more details.
