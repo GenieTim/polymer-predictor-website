@@ -1,0 +1,153 @@
+{
+  "input_features": [
+    "r",
+    "p",
+    "b2",
+    "ge_1 [MPa]",
+    "temperature [K]",
+    "density [g/cm^3]",
+    "param's <b> [nm]",
+    "remove_wsol",
+    "param's Mw [kg/mol]",
+    "Mw [kg/mol]",
+    "Mw [kg/mol] monofunctional chains",
+    "Mw [kg/mol] solvent chains",
+    "Mw [kg/mol] xlink chains",
+    "functionality_per_xlink_chain",
+    "functionalize_discrete",
+    "solvent_fraction_of_beads",
+    "monofunctional_fraction_of_beads",
+    "bifunctional_fraction_of_beads",
+    "entanglement_sampling_cutoff [nm]",
+    "entanglements_as_springs"
+  ],
+  "output_features": [
+    "G [MPa] from gamma Mean, Entangled FB No Slipping",
+    "Phantom, FB/FR, G_ANT [MPa]",
+    "dangling_fraction Mean, Entangled FB No Slipping",
+    "soluble_fraction Mean, Entangled FB No Slipping"
+  ],
+  "model_key": "",
+  "input_size": 20,
+  "output_size": 4,
+  "input_scaler": {
+    "type": "CustomScaler",
+    "bin_vars_index": [
+      7,
+      14
+    ],
+    "cont_vars_index": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      15,
+      16,
+      17,
+      18,
+      19
+    ],
+    "log_y": true,
+    "standard_scaler": {
+      "with_mean": true,
+      "with_std": true,
+      "mean_": [
+        1.054612703492097,
+        0.8481939639692114,
+        0.9561873892974326,
+        0.8947190927644381,
+        359.663997869269,
+        0.9595887658958664,
+        1.1525744198609233,
+        0.331797450967699,
+        47.62675468998305,
+        7.4466887007524205,
+        1.2713434797610175,
+        6.095816043402393,
+        14.944853204983138,
+        0.005088337754190774,
+        0.052990072482317505,
+        0.9311433259122442,
+        2.279814009670061,
+        0.08230161928049559
+      ],
+      "scale_": [
+        0.5270942675766433,
+        0.149618763149514,
+        0.14070500919799794,
+        1.0537747617109543,
+        88.13024488593612,
+        0.12520069656969138,
+        0.4000923708366356,
+        0.34034537140776333,
+        65.20578364070526,
+        31.328542515973737,
+        15.59773420193979,
+        27.09194347706551,
+        45.2238159401248,
+        0.04734748783894685,
+        0.15927728094530752,
+        0.17609835943662902,
+        0.5594256775994471,
+        0.27482369392813266
+      ],
+      "var_": [
+        0.2778283669121581,
+        0.022385774286390367,
+        0.019797899613408682,
+        1.1104412484189787,
+        7766.940063655071,
+        0.01567521442153593,
+        0.16007390520167997,
+        0.11583497183868838,
+        4251.794220198467,
+        981.477576175174,
+        243.28931223436228,
+        733.9734013645124,
+        2045.1935281862864,
+        0.00224178460465922,
+        0.025369252225330426,
+        0.03101063219627219,
+        0.3129570887576005,
+        0.07552806274430393
+      ]
+    }
+  },
+  "target_scaler": {
+    "type": "TargetScaler",
+    "log_vars_index": [
+      0,
+      1
+    ],
+    "log1p_vars_index": [],
+    "exclude_vars_index": [
+      2,
+      3
+    ],
+    "standard_scaler": {
+      "with_mean": true,
+      "with_std": true,
+      "mean_": [
+        -1.5480962112852987,
+        -3.9664354825677095
+      ],
+      "scale_": [
+        1.677679468159755,
+        1.3693771874892842
+      ],
+      "var_": [
+        2.814608397884799,
+        1.875193881616062
+      ]
+    }
+  }
+}

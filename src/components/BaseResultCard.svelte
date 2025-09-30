@@ -1,6 +1,6 @@
 <script lang="ts">
-  import type { Snippet } from "svelte";
   import newGithubIssueUrl from "new-github-issue-url";
+  import type { Snippet } from "svelte";
 
   interface Props {
     title: string;
@@ -26,12 +26,12 @@
     children,
   }: Props = $props();
 
-  let errorUrl = newGithubIssueUrl({
+  let errorUrl = $derived(newGithubIssueUrl({
     user: "GenieTim",
     repo: "pylimer-predictor-website",
     title: `Error in ${title}`,
     body: `An error occurred:\n\n\`\`\`\n${error}\n\`\`\``,
-  });
+  }));
 </script>
 
 <div {id} class:not-current={dirty} class="prediction">

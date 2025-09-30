@@ -5,18 +5,18 @@
    * Replaces server POST endpoints with local web‑worker predictors.
    */
   import Qty from "js-quantities";
-  import polymerPresetsDict from "../public/polymer-presets.json";
   import { ANTResults, MMTResults, NMAResults, NNResults } from "./components";
+  import FeatureWarning from "./components/FeatureWarning.svelte";
   import { PredictionInput } from "./entity/PredictionInput";
   import {
     DynamicModulusPredictorOutput,
     ModulusPredictionOutput,
   } from "./entity/PredictionOutput";
+  import polymerPresetsDict from "./polymer-presets.json";
   import { ANTPredictor } from "./worker_predictor/ant/ant_predictor";
   import { MMTPredictor } from "./worker_predictor/mmt/mmt_predictor";
   import { NMAPredictor } from "./worker_predictor/nma/nma_predictor";
   import { NNPredictor } from "./worker_predictor/nn/nn_predictor";
-  import FeatureWarning from "./components/FeatureWarning.svelte";
 
   // config
   const n_rep_ANT = 5;
@@ -442,6 +442,7 @@
                     class="form-control"
                     value={selectedPolymer.temperature}
                     readonly
+                    title="Temperature in Kelvin"
                   />
                 </label>
               </div>
@@ -452,6 +453,7 @@
                     class="form-control"
                     value={selectedPolymer.density}
                     readonly
+                    title="Polymer density"
                   />
                 </label>
               </div>
@@ -462,6 +464,7 @@
                     class="form-control"
                     value={selectedPolymer.plateau_modulus}
                     readonly
+                    title="Plateau modulus - elastic modulus in the entangled regime"
                   />
                 </label>
               </div>
@@ -472,6 +475,7 @@
                     class="form-control"
                     value={selectedPolymer.bead_mass}
                     readonly
+                    title="Molecular weight per bead"
                   />
                 </label>
               </div>
@@ -482,6 +486,7 @@
                     class="form-control"
                     value={selectedPolymer.mean_squared_bead_distance}
                     readonly
+                    title="Mean squared end-to-end distance between beads"
                   />
                 </label>
               </div>
@@ -492,6 +497,7 @@
                     class="form-control"
                     value={selectedPolymer.entanglement_sampling_cutoff}
                     readonly
+                    title="Entanglement sampling cutoff distance"
                   />
                 </label>
               </div>
@@ -513,6 +519,7 @@
               bind:value={stoichiometric_imbalance}
               class="form-control"
               oninput={markDirty}
+              title="Ratio of functional groups in the reaction mixture"
             />
           </label>
           <label class="w-100"
@@ -524,6 +531,7 @@
               bind:value={crosslink_functionality}
               class="form-control"
               oninput={markDirty}
+              title="Number of reactive sites per cross-linking molecule"
             />
           </label>
           <label class="w-100"
@@ -536,6 +544,7 @@
               bind:value={crosslink_conversion}
               class="form-control"
               oninput={markDirty}
+              title="Fraction of functional groups that have reacted"
             />
           </label>
           <label class="w-100"
@@ -548,6 +557,7 @@
               bind:value={b2_molar_fraction}
               class="form-control"
               oninput={markDirty}
+              title="Molar fraction of bifunctional chains in the polymer mixture"
             />
           </label>
           <label class="w-100"
@@ -559,6 +569,7 @@
               bind:value={mw_bifunctional}
               class="form-control"
               oninput={markDirty}
+              title="Molecular weight of bifunctional chains"
             />
           </label>
           <label class="w-100"
@@ -570,6 +581,7 @@
               bind:value={mw_monofunctional}
               class="form-control"
               oninput={markDirty}
+              title="Molecular weight of monofunctional chains"
             />
           </label>
           <label class="w-100"
@@ -581,6 +593,7 @@
               bind:value={mw_xlinks}
               class="form-control"
               oninput={markDirty}
+              title="Molecular weight of cross-linking molecules"
             />
           </label>
         </section>
