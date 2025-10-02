@@ -271,15 +271,10 @@ describe('Miller-Macosko Theory Calculations', () => {
       
       const pythonCode = `
 import json
-import math
+from pylimer_tools.calc.miller_macosko_theory import compute_miller_macosko_probabilities
 
-r, p, f, b2 = ${r}, ${p}, ${f}, ${b2}
-if f == 3:
-    alpha = (1 - r * p * p * b2) / (r * p * p * b2)
-elif f == 4:
-    alpha = math.sqrt((1.0 / (r * p * p * b2)) - 3.0 / 4.0) - (1.0 / 2.0)
-beta = r * p * (alpha ** (f - 1)) + 1 - r * p
-print(json.dumps([alpha, beta]))
+result = compute_miller_macosko_probabilities(r=${r}, p=${p}, f=${f}, b2=${b2})
+print(json.dumps(result))
 `;
       
       const [alphaPy, betaPy] = runPython(pythonCode);
@@ -298,15 +293,10 @@ print(json.dumps([alpha, beta]))
       
       const pythonCode = `
 import json
-import math
+from pylimer_tools.calc.miller_macosko_theory import compute_miller_macosko_probabilities
 
-r, p, f, b2 = ${r}, ${p}, ${f}, ${b2}
-if f == 3:
-    alpha = (1 - r * p * p * b2) / (r * p * p * b2)
-elif f == 4:
-    alpha = math.sqrt((1.0 / (r * p * p * b2)) - 3.0 / 4.0) - (1.0 / 2.0)
-beta = r * p * (alpha ** (f - 1)) + 1 - r * p
-print(json.dumps([alpha, beta]))
+result = compute_miller_macosko_probabilities(r=${r}, p=${p}, f=${f}, b2=${b2})
+print(json.dumps(result))
 `;
       
       const [alphaPy, betaPy] = runPython(pythonCode);
@@ -321,8 +311,9 @@ print(json.dumps([alpha, beta]))
       const tsResult = computeTrappingFactor(beta);
       const pythonCode = `
 import json
-beta = ${beta}
-result = (1 - beta) ** 4
+from pylimer_tools.calc.miller_macosko_theory import compute_trapping_factor
+
+result = compute_trapping_factor(beta=${beta})
 print(json.dumps(result))
 `;
       const pyResult = runPython(pythonCode);
@@ -360,38 +351,18 @@ print(json.dumps(result))
 
       const pythonCodeSoluble = `
 import json
-import math
-
-def binomial_coefficient(n, k):
-    if k < 0 or k > n:
-        return 0
-    if k == 0 or k == n:
-        return 1
-    result = 1
-    for i in range(1, k + 1):
-        result *= (n - i + 1) / i
-    return result
-
-r, p, f, b2 = ${r}, ${p}, ${f}, ${b2}
-if f == 3:
-    alpha = (1 - r * p * p * b2) / (r * p * p * b2)
-elif f == 4:
-    alpha = math.sqrt((1.0 / (r * p * p * b2)) - 3.0 / 4.0) - (1.0 / 2.0)
-beta = r * p * (alpha ** (f - 1)) + 1 - r * p
+from pylimer_tools.calc.miller_macosko_theory import compute_weight_fraction_of_soluble_material
 
 functionality_per_type = {1: 2, 2: 4, 4: 1}
 weight_fractions = {1: 0.48, 2: 0.32, 4: 0.20}
 
-w_sol = 0
-for atom_type, weight_fraction in weight_fractions.items():
-    functionality = functionality_per_type[atom_type]
-    if functionality == 2:
-        w_sol += weight_fraction * (beta ** 2)
-    elif functionality >= 3:
-        w_sol += weight_fraction * (alpha ** functionality)
-    else:
-        w_sol += weight_fraction
-
+w_sol = compute_weight_fraction_of_soluble_material(
+    functionality_per_type=functionality_per_type,
+    weight_fractions=weight_fractions,
+    r=${r},
+    p=${p},
+    b2=${b2}
+)
 print(json.dumps(w_sol))
 `;
 
@@ -409,39 +380,18 @@ print(json.dumps(w_sol))
 
       const pythonCodeDangling = `
 import json
-import math
-
-def binomial_coefficient(n, k):
-    if k < 0 or k > n:
-        return 0
-    if k == 0 or k == n:
-        return 1
-    result = 1
-    for i in range(1, k + 1):
-        result *= (n - i + 1) / i
-    return result
-
-r, p, f, b2 = ${r}, ${p}, ${f}, ${b2}
-if f == 3:
-    alpha = (1 - r * p * p * b2) / (r * p * p * b2)
-elif f == 4:
-    alpha = math.sqrt((1.0 / (r * p * p * b2)) - 3.0 / 4.0) - (1.0 / 2.0)
-beta = r * p * (alpha ** (f - 1)) + 1 - r * p
+from pylimer_tools.calc.miller_macosko_theory import compute_weight_fraction_of_dangling_chains
 
 functionality_per_type = {1: 2, 2: 4, 4: 1}
 weight_fractions = {1: 0.48, 2: 0.32, 4: 0.20}
 
-w_dangling = 0.0
-for atom_type, weight_fraction in weight_fractions.items():
-    functionality = functionality_per_type[atom_type]
-    if functionality == 1:
-        w_dangling += weight_fraction
-    elif functionality == 2:
-        w_dangling += weight_fraction * 2 * beta * (1 - beta)
-    elif functionality >= 3:
-        prob_dangling = binomial_coefficient(functionality, 1) * (alpha ** (functionality - 1)) * (1 - alpha)
-        w_dangling += weight_fraction * prob_dangling
-
+w_dangling = compute_weight_fraction_of_dangling_chains(
+    functionality_per_type=functionality_per_type,
+    weight_fractions=weight_fractions,
+    r=${r},
+    p=${p},
+    b2=${b2}
+)
 print(json.dumps(w_dangling))
 `;
 
@@ -465,15 +415,10 @@ print(json.dumps(w_dangling))
         
         const pythonCode = `
 import json
-import math
+from pylimer_tools.calc.miller_macosko_theory import compute_miller_macosko_probabilities
 
-r, p, f, b2 = ${r}, ${p}, ${f}, ${b2}
-if f == 3:
-    alpha = (1 - r * p * p * b2) / (r * p * p * b2)
-elif f == 4:
-    alpha = math.sqrt((1.0 / (r * p * p * b2)) - 3.0 / 4.0) - (1.0 / 2.0)
-beta = r * p * (alpha ** (f - 1)) + 1 - r * p
-print(json.dumps([alpha, beta]))
+result = compute_miller_macosko_probabilities(r=${r}, p=${p}, f=${f}, b2=${b2})
+print(json.dumps(result))
 `;
         
         const [alphaPy, betaPy] = runPython(pythonCode);
