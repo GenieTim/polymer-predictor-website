@@ -12,22 +12,28 @@ import NotFound from "./NotFound.svelte";
 const basePath = import.meta.env.BASE_URL;
 
 // Get current route - check hash first (for GitHub Pages redirects), then pathname
-let currentRoute = '/';
+let currentRoute = "/";
 
-if (window.location.hash.startsWith('#/')) {
+if (window.location.hash.startsWith("#/")) {
   // Hash-based routing (from GitHub Pages 404 redirect)
   currentRoute = window.location.hash.slice(1);
 } else {
   // Regular path-based routing
   const fullPath = window.location.pathname;
-  currentRoute = fullPath.startsWith(basePath) 
-    ? fullPath.slice(basePath.length - 1) 
+  currentRoute = fullPath.startsWith(basePath)
+    ? fullPath.slice(basePath.length - 1)
     : fullPath;
 }
 
 // Ensure route starts with /
-if (!currentRoute.startsWith('/')) {
-  currentRoute = '/' + currentRoute;
+if (!currentRoute.startsWith("/")) {
+  currentRoute = "/" + currentRoute;
+}
+
+// clean up by removing trailing slashes, replacing multiple slashes with single slash
+currentRoute = currentRoute.replace(/\/+$/, "").replace(/\/+/g, "/");
+if (currentRoute === "") {
+  currentRoute = "/";
 }
 
 let app = null;
@@ -45,6 +51,7 @@ switch (currentRoute) {
     break;
 
   default:
+    console.log("Route '" + currentRoute + "' not found, showing 404");
     app = mount(NotFound, {
       target: document.getElementById("app")!,
     });
