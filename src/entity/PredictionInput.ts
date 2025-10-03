@@ -165,9 +165,10 @@ export class PredictionInput {
     };
     // Then, before returning, convert Qty objects to simple {value: , unit: } objects
     for (const key in inputWithComputed) {
-      const value = inputWithComputed[key];
+      const typedKey = key as keyof typeof inputWithComputed;
+      const value = inputWithComputed[typedKey];
       if (value && value instanceof Qty) {
-        inputWithComputed[key] = { value: value.scalar, unit: value.units() };
+        (inputWithComputed as any)[typedKey] = { value: value.scalar, unit: value.units() };
       }
     }
     return inputWithComputed;

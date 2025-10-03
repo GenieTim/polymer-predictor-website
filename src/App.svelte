@@ -52,7 +52,7 @@
   );
 
   // Molecular weights (user editable, converted to bead counts) - rounded to step
-  let mw_bifunctional = $state(roundToStep(30 * selectedPolymer.bead_mass));
+  let mw_bifunctional = $state(0);
   let mw_monofunctional = $state(0); // already valid
   let mw_xlinks = $state(0);
 

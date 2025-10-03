@@ -1,3 +1,4 @@
+// @ts-expect-error - Pyodide is loaded from CDN without type declarations
 import { loadPyodide } from "https://cdn.jsdelivr.net/pyodide/v0.28.1/full/pyodide.mjs";
 
 // Construct the wheel file URL dynamically to avoid Vite asset processing
