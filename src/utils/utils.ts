@@ -7,9 +7,14 @@ export function format2(v?: number): string {
 }
 
 export function myQtyFormatter(scalar: number, unit: string): string {
+  console.log("Formatting", scalar, unit);
   return scalar == null || !isFinite(scalar)
     ? "-"
     : `${scalar.toFixed(2)} ${unit}`.trim();
+}
+
+export function jsonFormatter(scalar: number, unit: string): string {
+  return JSON.stringify({ scalar: scalar, unit: unit });
 }
 
 export function mean(vals: number[]): number {

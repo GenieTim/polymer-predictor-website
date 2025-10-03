@@ -5,6 +5,7 @@
   import FormattedNumber from "./FormattedNumber.svelte";
   import ModulusCard from "./ModulusCard.svelte";
   import { format2, mean, std } from "../utils/utils";
+  import Qty from "js-quantities";
 
   interface Props {
     samples: ModulusPredictionOutput[];
@@ -17,7 +18,7 @@
 
   function computeAntAggregate(samples: ModulusPredictionOutput[]) {
     if (!samples.length) return null;
-    
+
     const phantomVals = samples.map((s) => s.phantom_modulus.scalar);
     const entangledVals = samples.map((s) => s.entanglement_modulus.scalar);
     const eqVals = samples.map(
@@ -25,7 +26,7 @@
     );
     const w_solubleVals = samples.map((s) => s.w_soluble.scalar);
     const w_danglingVals = samples.map((s) => s.w_dangling.scalar);
-    
+
     return {
       n: samples.length,
       phantom_mean: mean(phantomVals),
@@ -56,30 +57,32 @@
   {#if antAggregate}
     <div class="text-center p-3 bg-success text-white rounded mb-3">
       <h3 class="mb-0">
-        <i>G</i><sub>eq</sub> = 
-        <FormattedNumber value={antAggregate.eq_mean} std_deviation={antAggregate.eq_std} unit="MPa" />
+        <i>G</i><sub>eq</sub> =
+        <FormattedNumber
+          value={antAggregate.eq_mean}
+          std_deviation={antAggregate.eq_std}
+          unit="MPa"
+        />
       </h3>
     </div>
-    
+
     <div class="row mb-3">
       <div class="col-6">
         <ModulusCard
           label="Phantom"
-          value={format2(antAggregate.phantom_mean)}
-          error={antAggregate.phantom_std > 0 ? format2(antAggregate.phantom_std) : undefined}
-          unit="MPa"
+          value_with_unit={Qty(antAggregate.phantom_mean, "MPa")}
+          error={antAggregate.phantom_std}
         />
       </div>
       <div class="col-6">
         <ModulusCard
           label="Entangled"
-          value={format2(antAggregate.entangled_mean)}
-          error={antAggregate.entangled_std > 0 ? format2(antAggregate.entangled_std) : undefined}
-          unit="MPa"
+          value_with_unit={Qty(antAggregate.entangled_mean, "MPa")}
+          error={antAggregate.entangled_std}
         />
       </div>
     </div>
-    
+
     <div class="border-top pt-3">
       <h6 class="text-muted mb-2">Weight Fractions</h6>
       <div class="row">

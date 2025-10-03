@@ -1,36 +1,38 @@
-
-import Qty from 'js-quantities';
+import Qty from "js-quantities";
 
 /**
  * Finds the best unit prefix for displaying the value in a human-readable range (1-1000).
  * Uses js-quantities to handle unit conversions properly.
  */
-function findBestUnit(value: number, unit: string): { value: number; unit: string } {
+function findBestUnit(
+  value: number,
+  unit: string
+): { value: number; unit: string } {
   try {
     const qty = new Qty(value, unit);
-    
+
     // Extract the base unit by removing common SI prefixes
-    const baseUnit = unit.replace(/^[nμmkMGT]/, '');
-    
+    const baseUnit = unit.replace(/^[nμmkMGT]/, "");
+
     // Try different SI prefixes to find the best scale
     const prefixes = [
-      { symbol: 'n', factor: 1e-9 },
-      { symbol: 'μ', factor: 1e-6 },
-      { symbol: 'm', factor: 1e-3 },
-      { symbol: '', factor: 1 },
-      { symbol: 'k', factor: 1e3 },
-      { symbol: 'M', factor: 1e6 },
-      { symbol: 'G', factor: 1e9 },
-      { symbol: 'T', factor: 1e12 }
+      { symbol: "n", factor: 1e-9 },
+      { symbol: "μ", factor: 1e-6 },
+      { symbol: "m", factor: 1e-3 },
+      { symbol: "", factor: 1 },
+      { symbol: "k", factor: 1e3 },
+      { symbol: "M", factor: 1e6 },
+      { symbol: "G", factor: 1e9 },
+      { symbol: "T", factor: 1e12 },
     ];
-    
+
     // Try to find the best prefix where the scalar is between 1 and 1000
     for (const { symbol, factor } of prefixes) {
       try {
         const testUnit = symbol + baseUnit;
         const converted = qty.to(testUnit);
         const scalar = Math.abs(converted.scalar);
-        
+
         // Use this unit if the value is in a good range
         if (scalar >= 1 && scalar < 1000) {
           return { value: converted.scalar, unit: testUnit };
@@ -40,7 +42,7 @@ function findBestUnit(value: number, unit: string): { value: number; unit: strin
         continue;
       }
     }
-    
+
     // If no good prefix found, return the original
     return { value, unit };
   } catch {
@@ -54,27 +56,33 @@ function findBestUnit(value: number, unit: string): { value: number; unit: strin
  */
 function autoConvertUnit(
   value: number,
-  error: number,
-  unit: string | null
+  error: number | undefined | null,
+  unit: string | undefined | null
 ): { value: number; error: number; unit: string } {
-  if (!unit) return { value, error, unit: '' };
-  
+  // If unit is missing, return with normalized types
+  if (!unit) {
+    return { value, error: error ?? 0, unit: "" };
+  }
+
   try {
-    // Find the best unit for the value
+    // Find the best unit for the value (always convert, even without error)
     const { value: convertedValue, unit: bestUnit } = findBestUnit(value, unit);
-    
-    // Convert the error to the same unit
-    const errorQty = new Qty(error, unit);
-    const convertedError = errorQty.to(bestUnit).scalar;
-    
+
+    // Convert the error to the same unit if provided
+    let convertedError = 0;
+    if (error != null) {
+      const errorQty = new Qty(error, unit);
+      convertedError = errorQty.to(bestUnit).scalar;
+    }
+
     return {
       value: convertedValue,
       error: convertedError,
-      unit: bestUnit
+      unit: bestUnit,
     };
   } catch {
     // Fallback to original if conversion fails
-    return { value, error, unit };
+    return { value, error: error ?? 0, unit: unit ?? "" };
   }
 }
 
@@ -103,19 +111,19 @@ function getDecimalPlacesFromError(error: number, value: number): number {
     const magnitude = Math.floor(Math.log10(abs));
     return Math.max(0, 2 - magnitude);
   }
-  
+
   const errorMagnitude = Math.floor(Math.log10(Math.abs(error)));
-  
+
   // Round error to 1 significant digit to see what the first digit will be
-  const roundedTo1Sig = Math.round(error / Math.pow(10, errorMagnitude)) * Math.pow(10, errorMagnitude);
+  const roundedTo1Sig =
+    Math.round(error / Math.pow(10, errorMagnitude)) *
+    Math.pow(10, errorMagnitude);
   const firstDigit = getFirstSignificantDigit(roundedTo1Sig);
-  
+
   // If first digit >= 3, show 1 significant digit (round to error's magnitude)
   // If first digit < 3, show 2 significant digits (round to one place below error's magnitude)
-  const decimalPlaces = firstDigit >= 3 
-    ? -errorMagnitude 
-    : -errorMagnitude + 1;
-  
+  const decimalPlaces = firstDigit >= 3 ? -errorMagnitude : -errorMagnitude + 1;
+
   return Math.max(0, decimalPlaces);
 }
 
@@ -131,28 +139,31 @@ function roundToDecimals(num: number, decimals: number): string {
 
 export function formatNumberWithErrorAndUnit(
   value: number,
-  error: number,
-  decimals: number | null,
-  unit: string | null
+  error: number | undefined | null,
+  decimals: number | undefined | null,
+  unit: string | undefined | null
 ): { value: string; error: string; unit: string } {
   // Step 1: Convert to best unit
-  const { value: convertedValue, error: convertedError, unit: displayUnit } = 
-    autoConvertUnit(value, error, unit);
-  
+  const {
+    value: convertedValue,
+    error: convertedError,
+    unit: displayUnit,
+  } = autoConvertUnit(value, error, unit);
+
   // Step 2: Determine precision
-  const decimalPlaces = decimals !== null && decimals !== undefined
-    ? decimals
-    : getDecimalPlacesFromError(convertedError, convertedValue);
-  
+  const decimalPlaces =
+    decimals !== null && decimals !== undefined
+      ? decimals
+      : getDecimalPlacesFromError(convertedError, convertedValue);
+
   // Step 3: Format the numbers
   const formattedValue = roundToDecimals(convertedValue, decimalPlaces);
-  const formattedError = convertedError > 0 
-    ? roundToDecimals(convertedError, decimalPlaces) 
-    : '';
-  
+  const formattedError =
+    convertedError > 0 ? roundToDecimals(convertedError, decimalPlaces) : "";
+
   return {
     value: formattedValue,
     error: formattedError,
-    unit: displayUnit
+    unit: displayUnit,
   };
 }

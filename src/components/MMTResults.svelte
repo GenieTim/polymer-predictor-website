@@ -1,10 +1,11 @@
 <script lang="ts">
   import type { PredictionInput } from "../entity/PredictionInput";
   import type { ModulusPredictionOutput } from "../entity/PredictionOutput";
+  import { myQtyFormatter } from "../utils/utils";
   import Badge from "./Badge.svelte";
   import BaseResultCard from "./BaseResultCard.svelte";
+  import FormattedNumber from "./FormattedNumber.svelte";
   import ModulusCard from "./ModulusCard.svelte";
-  import { myQtyFormatter } from "../utils/utils";
 
   interface Props {
     result: ModulusPredictionOutput | null;
@@ -42,9 +43,7 @@
     <div class="text-center p-3 bg-secondary text-white rounded mb-3">
       <h3 class="mb-0">
         <i>G</i><sub>eq</sub> =
-        <span title={result.modulus.toString()}
-          >{result.modulus.format(myQtyFormatter)}</span
-        >
+        <FormattedNumber value_with_unit={result.modulus} />
       </h3>
     </div>
 
@@ -53,14 +52,14 @@
       <div class="col-6">
         <ModulusCard
           label="Phantom"
-          value={result.phantom_modulus.format(myQtyFormatter)}
+          value_with_unit={result.phantom_modulus}
           variant="light"
         />
       </div>
       <div class="col-6">
         <ModulusCard
           label="Entangled"
-          value={result.entanglement_modulus.format(myQtyFormatter)}
+          value_with_unit={result.entanglement_modulus}
           variant="light"
         />
       </div>

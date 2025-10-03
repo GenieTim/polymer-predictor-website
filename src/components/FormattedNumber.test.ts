@@ -141,4 +141,24 @@ describe("formatNumberWithErrorAndUnit", () => {
       unit: "",
     });
   });
+
+  it("auto-converts units even without error (consistent with ANT)", () => {
+    // This test verifies that unit conversion happens regardless of whether
+    // an error is provided, ensuring consistency across all predictors
+    const result = formatNumberWithErrorAndUnit(5000, undefined, null, "Pa");
+    expect(result).toEqual({
+      value: "5.00",
+      error: "",
+      unit: "kPa",
+    });
+  });
+
+  it("auto-converts units with null error (consistent with ANT)", () => {
+    const result = formatNumberWithErrorAndUnit(0.001, null, null, "MPa");
+    expect(result).toEqual({
+      value: "1.00",
+      error: "",
+      unit: "kPa",
+    });
+  });
 });
