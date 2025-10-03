@@ -724,20 +724,20 @@
           {predictionInput}
         />
 
-        <!-- NMA (Dynamic Modulus) Results -->
-        <NMAResults
-          result={nmaResult}
-          loading={nmaLoading}
-          {dirty}
-          error={nmaError}
-        />
-
         <!-- Neural Network Results -->
         <NNResults
           result={nnResult}
           loading={nnLoading}
           {dirty}
           error={nnError}
+        />
+
+        <!-- NMA (Dynamic Modulus) Results -->
+        <NMAResults
+          result={nmaResult}
+          loading={nmaLoading}
+          {dirty}
+          error={nmaError}
         />
       </div>
     </div>

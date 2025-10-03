@@ -1,4 +1,4 @@
-# Pylimer Predictor Website
+# Polymer Predictor Website
 
 A web application for predicting polymer properties using physics-based and machine learning methods. Built with Svelte, TypeScript, and Vite.
 

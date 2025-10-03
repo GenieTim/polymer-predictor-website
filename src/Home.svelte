@@ -11,7 +11,7 @@
     <div class="col-lg-8">
       <div class="card">
         <div class="card-body">
-          <h1 class="card-title">Welcome to Pylimer Predictor!</h1>
+          <h1 class="card-title">Welcome to Polymer Predictor!</h1>
           <p class="card-text lead">
             Advanced physics-based and machine learning tools for predicting
             polymer properties.
@@ -82,11 +82,11 @@
     <div class="col-12">
       <div class="card">
         <div class="card-header">
-          <h2 class="mb-0">About Pylimer Predictor</h2>
+          <h2 class="mb-0">About Polymer Predictor</h2>
         </div>
         <div class="card-body">
           <p class="card-text">
-            Pylimer Predictor is an innovative platform that leverages advanced
+            Polymer Predictor is an innovative platform that leverages advanced
             physics-based and machine learning techniques for predicting polymer
             properties. Our mission is to empower researchers and industry
             professionals with powerful tools that enhance understanding and
@@ -139,7 +139,7 @@
                 href="https://github.com/GenieTim/pylimer-predictor-website"
                 class="text-decoration-none"
                 title="GitHub Repository of pylimer-predictor-website"
-                >pylimer-predictor-website</a
+                >polymer-predictor-website</a
               >
               repository to help improve the tool.
             </small>
@@ -169,7 +169,7 @@
             <a
               href="https://github.com/GenieTim/pylimer-predictor-website"
               class="text-decoration-none"
-              title="GitHub Repository of pylimer-predictor-website"
+              title="GitHub Repository of polymer-predictor-website"
               >GitHub repository</a
             > of this site.
           </p>

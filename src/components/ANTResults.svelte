@@ -2,8 +2,9 @@
   import type { ModulusPredictionOutput } from "../entity/PredictionOutput";
   import Badge from "./Badge.svelte";
   import BaseResultCard from "./BaseResultCard.svelte";
+  import FormattedNumber from "./FormattedNumber.svelte";
   import ModulusCard from "./ModulusCard.svelte";
-  import { format2, mean, std } from "./utils";
+  import { format2, mean, std } from "../utils/utils";
 
   interface Props {
     samples: ModulusPredictionOutput[];
@@ -55,10 +56,8 @@
   {#if antAggregate}
     <div class="text-center p-3 bg-success text-white rounded mb-3">
       <h3 class="mb-0">
-        <i>G</i><sub>eq</sub> = {format2(antAggregate.eq_mean)}
-        {#if antAggregate.eq_std > 0}<span class="error"
-            >± {format2(antAggregate.eq_std)}</span
-          >{/if} <span class="unit">MPa</span>
+        <i>G</i><sub>eq</sub> = 
+        <FormattedNumber value={antAggregate.eq_mean} std_deviation={antAggregate.eq_std} unit="MPa" />
       </h3>
     </div>
     

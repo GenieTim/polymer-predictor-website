@@ -4,7 +4,7 @@
   import Badge from "./Badge.svelte";
   import BaseResultCard from "./BaseResultCard.svelte";
   import ModulusCard from "./ModulusCard.svelte";
-  import { myQtyFormatter } from "./utils";
+  import { myQtyFormatter } from "../utils/utils";
 
   interface Props {
     result: ModulusPredictionOutput | null;
