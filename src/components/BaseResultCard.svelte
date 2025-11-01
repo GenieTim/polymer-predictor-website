@@ -28,7 +28,7 @@
 
   let errorUrl = $derived(newGithubIssueUrl({
     user: "GenieTim",
-    repo: "pylimer-predictor-website",
+    repo: "polymer-predictor-website",
     title: `Error in ${title}`,
     body: `An error occurred:\n\n\`\`\`\n${error}\n\`\`\``,
   }));

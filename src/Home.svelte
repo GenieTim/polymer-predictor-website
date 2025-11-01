@@ -136,9 +136,9 @@
             <small class="text-muted">
               Please consider providing feedback or contributing to the
               <a
-                href="https://github.com/GenieTim/pylimer-predictor-website"
+                href="https://github.com/GenieTim/polymer-predictor-website"
                 class="text-decoration-none"
-                title="GitHub Repository of pylimer-predictor-website"
+                title="GitHub Repository of polymer-predictor-website"
                 >polymer-predictor-website</a
               >
               repository to help improve the tool.
@@ -167,7 +167,7 @@
             </a>
             or open an issue on the
             <a
-              href="https://github.com/GenieTim/pylimer-predictor-website"
+              href="https://github.com/GenieTim/polymer-predictor-website"
               class="text-decoration-none"
               title="GitHub Repository of polymer-predictor-website"
               >GitHub repository</a

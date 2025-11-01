@@ -3,7 +3,7 @@ import { loadPyodide } from "https://cdn.jsdelivr.net/pyodide/v0.28.1/full/pyodi
 
 // Construct the wheel file URL dynamically to avoid Vite asset processing
 const wheelFileName = 'pylimer_tools-0.3.10-cp313-cp313-pyodide_2025_0_wasm32.whl';
-// Get the base path for assets - in development it's "/", in production it's "/pylimer-predictor-website/"
+// Get the base path for assets - in development it's "/", in production it's "/polymer-predictor-website/"
 const pylimerTools = (import.meta.env.BASE_URL || '/') + wheelFileName;
 
 let pyodideReadyPromise = loadPyodide();

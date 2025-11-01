@@ -2,7 +2,7 @@
  * Utility to get the correct base path for assets in both development and production.
  * 
  * In development: base path is '/'
- * On GitHub Pages: base path is '/pylimer-predictor-website/'
+ * On GitHub Pages: base path is '/polymer-predictor-website/'
  * 
  * This ensures that all asset paths work correctly regardless of deployment environment.
  */
@@ -24,7 +24,7 @@ export function getBasePath(): string {
  * 
  * @example
  * // In development: getAssetPath('models/m-.onnx') -> '/models/m-.onnx'
- * // On GitHub Pages: getAssetPath('models/m-.onnx') -> '/pylimer-predictor-website/models/m-.onnx'
+ * // On GitHub Pages: getAssetPath('models/m-.onnx') -> '/polymer-predictor-website/models/m-.onnx'
  */
 export function getAssetPath(path: string): string {
   const basePath = getBasePath();

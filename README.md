@@ -68,4 +68,4 @@ The application uses WebAssembly builds of the [pylimer-tools](https://github.co
 
 ## Contributing
 
-Issues and pull requests are welcome. See the [GitHub repository](https://github.com/GenieTim/pylimer-predictor-website) for more details.
+Issues and pull requests are welcome. See the [GitHub repository](https://github.com/GenieTim/polymer-predictor-website) for more details.
