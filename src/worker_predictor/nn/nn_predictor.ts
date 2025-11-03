@@ -122,6 +122,8 @@ export class NNPredictor implements Predictor {
   }
 
   private async loadMetadata(config: ModelConfig): Promise<ModelMetadata> {
+    console.log("Loading metadata from", config.metadataPath);
+
     // Check if metadata is already cached
     if (!this.metadataCache.has(config.metadataPath)) {
       try {

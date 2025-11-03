@@ -26,18 +26,29 @@
     children,
   }: Props = $props();
 
-  let errorUrl = $derived(newGithubIssueUrl({
-    user: "GenieTim",
-    repo: "polymer-predictor-website",
-    title: `Error in ${title}`,
-    body: `An error occurred:\n\n\`\`\`\n${error}\n\`\`\``,
-  }));
+  let errorUrl = $derived(
+    newGithubIssueUrl({
+      user: "GenieTim",
+      repo: "polymer-predictor-website",
+      title: `Error in ${title}`,
+      body: `An error occurred:\n\n\`\`\`\n${error}\n\`\`\``,
+    })
+  );
 </script>
 
 <div {id} class:not-current={dirty} class="prediction">
   <div class="card">
     <div class="card-header">
-      <h5 class="card-title mb-0">{title}</h5>
+      <div class="row">
+        <div class="col">
+          <h5 class="card-title mb-0">{title}</h5>
+        </div>
+        {#if loading && hasResult}
+          <div class="col align-right text-end">
+            <small class="text-muted badge badge-warning">Refining...</small>
+          </div>
+        {/if}
+      </div>
     </div>
     <div class="card-body">
       {#if error}
