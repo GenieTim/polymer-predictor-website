@@ -314,7 +314,6 @@
   async function onSubmit(ev: Event) {
     ev.preventDefault();
     dirty = false;
-    antSamples = []; // reset previous samples on new submission
 
     // Clear previous errors
     antError = null;
@@ -324,6 +323,10 @@
 
     // Reset progress
     progressValue = 0;
+    antSamples = [];
+    mmtResult = null;
+    nmaResult = null;
+    nnResult = null;
 
     let promises = [
       runMMT(predictionInput),
