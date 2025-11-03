@@ -158,6 +158,7 @@ export class NNPredictor implements Predictor {
     return new Map([
       ["r", (input) => input.stoichiometric_imbalance],
       ["p", (input) => input.crosslink_conversion],
+      ["p_relative", (input) => input.p_relative],
       ["b2", (input) => input.b2],
       ["ge_1 [MPa]", (input) => input.plateau_modulus.to("MPa").scalar],
       ["temperature [K]", (input) => input.temperature.to("kelvin").scalar],

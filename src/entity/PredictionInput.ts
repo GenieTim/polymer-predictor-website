@@ -85,7 +85,9 @@ export class PredictionInput {
   public get mean_bead_distance(): Qty {
     // alpha = 3π/8; returns sqrt( <r^2> / alpha )
     const alpha = (3 * Math.PI) / 8.0;
-    const val = Math.sqrt(this.mean_squared_bead_distance.to("nm^2").scalar / alpha);
+    const val = Math.sqrt(
+      this.mean_squared_bead_distance.to("nm^2").scalar / alpha
+    );
     return Qty(val, "nm");
   }
 
@@ -141,6 +143,51 @@ export class PredictionInput {
     );
   }
 
+  /**
+   * Compute pMin (gel point) based on stoichiometric imbalance, crosslink functionality, and b2.
+   * Formula: p_gel = sqrt(1 / (r * (f-1) * b2))
+   */
+  public get p_gel(): number {
+    const denom =
+      this.stoichiometric_imbalance *
+      (this.crosslink_functionality - 1) *
+      this.b2;
+    let pgel = denom > 0 ? Math.sqrt(1 / denom) : 1;
+    if (!isFinite(pgel)) pgel = 1;
+
+    return Math.min(Math.max(pgel, 0), 1);
+  }
+
+  /**
+   * Compute pMax (maximum crosslink conversion) based on stoichiometry.
+   * Formula: p_max = max_possible_bonds / (n_xlinks * crosslink_functionality)
+   */
+  public get p_max(): number {
+    const max_possible_bonds =
+      this.n_bifunctional_chains * 2 + this.n_monofunctional_chains;
+    const n_xlinks =
+      (max_possible_bonds * this.stoichiometric_imbalance) /
+      this.crosslink_functionality;
+    const p_max_calc =
+      n_xlinks > 0
+        ? max_possible_bonds / (n_xlinks * this.crosslink_functionality)
+        : 1;
+    return Math.min(Math.max(p_max_calc, 0), 1);
+  }
+
+  /**
+   * Compute p_relative: normalized crosslink conversion between pMin (0) and pMax (1).
+   * Formula: p_relative = (p - pMin) / (pMax - pMin)
+   * This value is always between 0 and 1.
+   */
+  public get p_relative(): number {
+    const range = this.p_max - this.p_gel;
+    if (range <= 0) return 0; // Avoid division by zero
+    const relative = (this.crosslink_conversion - this.p_gel) / range;
+    // Clamp to [0, 1] to handle any numerical precision issues
+    return Math.min(Math.max(relative, 0), 1);
+  }
+
   is_mmtable(): boolean {
     return !(
       this.extract_solvent_before_measurement ||
@@ -168,7 +215,10 @@ export class PredictionInput {
       const typedKey = key as keyof typeof inputWithComputed;
       const value = inputWithComputed[typedKey];
       if (value && value instanceof Qty) {
-        (inputWithComputed as any)[typedKey] = { value: value.scalar, unit: value.units() };
+        (inputWithComputed as any)[typedKey] = {
+          value: value.scalar,
+          unit: value.units(),
+        };
       }
     }
     return inputWithComputed;

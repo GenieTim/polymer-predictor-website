@@ -1,11 +1,9 @@
 {
   "input_features": [
     "r",
-    "p",
+    "p_relative",
     "Mw [kg/mol]",
-    "Mw [kg/mol] monofunctional chains",
-    "functionality_per_xlink_chain",
-    "functionalize_discrete"
+    "functionality_per_xlink_chain"
   ],
   "output_features": [
     "G [MPa] from gamma Mean, Entangled FB No Slipping",
@@ -14,44 +12,47 @@
     "soluble_fraction Mean, Entangled FB No Slipping"
   ],
   "model_key": "remove_wsol_False_entanglements_as_springs_False_has_solvent_False_polymer_type_pdms_architecture_1xlink-without-mono",
-  "input_size": 6,
+  "input_size": 4,
   "output_size": 4,
   "input_scaler": {
     "type": "CustomScaler",
-    "bin_vars_index": [
-      5
+    "bin_vars_index": [],
+    "logit_vars_index": [
+      1
     ],
     "cont_vars_index": [
       0,
+      2,
+      3
+    ],
+    "scale_vars_index": [
+      0,
       1,
       2,
-      3,
-      4
+      3
     ],
+    "logit_epsilon": 1e-06,
     "log_y": true,
     "standard_scaler": {
       "with_mean": true,
       "with_std": true,
       "mean_": [
-        1.2199039410780588,
-        0.7146242893732265,
-        25.31075537883043,
-        0.0,
-        4.39400031411968
+        1.2201854732422484,
+        0.8907073113626787,
+        25.357832693344836,
+        4.39444705882353
       ],
       "scale_": [
-        0.37935594473285844,
-        0.1630339057447592,
-        13.802563918447788,
-        1.0,
-        0.8880074724559124
+        0.37924316492281596,
+        1.2772342465669348,
+        13.807037318920468,
+        0.8887553249288517
       ],
       "var_": [
-        0.14391093280415954,
-        0.02658005442239103,
-        190.51077072283675,
-        0.0,
-        0.788557271137538
+        0.14382537814067417,
+        1.6313273206034058,
+        190.63427952606253,
+        0.7898860275893888
       ]
     }
   },
@@ -62,24 +63,32 @@
       1
     ],
     "log1p_vars_index": [],
-    "exclude_vars_index": [
+    "logit_vars_index": [
       2,
       3
     ],
+    "exclude_vars_index": [],
+    "logit_epsilon": 1e-06,
     "standard_scaler": {
       "with_mean": true,
       "with_std": true,
       "mean_": [
-        -2.9481096144737324,
-        -4.490012870230537
+        -2.9468891074888033,
+        -4.4908020106547015,
+        -0.5940761099961002,
+        -2.6065008443882043
       ],
       "scale_": [
-        0.9972585036323898,
-        1.1560970428982305
+        0.9982461167259267,
+        1.1567869808445816,
+        0.7226401473172808,
+        1.538647571375174
       ],
       "var_": [
-        0.9945245230671133,
-        1.336560372598033
+        0.9964953095583924,
+        1.3381561190515228,
+        0.5222087825147412,
+        2.367436348898721
       ]
     }
   }

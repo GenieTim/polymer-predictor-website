@@ -60,14 +60,15 @@
     const storageModulus = result.g_prime;
     const lossModulus = result.g_double_prime;
 
-    const storageModulusData = storageModulus.map((value, index) => ({
-      x: frequencies[index],
-      y: value,
-    }));
-    const lossModulusData = lossModulus.map((value, index) => ({
-      x: frequencies[index],
-      y: value,
-    }));
+    // Filter and sort data for valid logarithmic plotting
+    const storageModulusData = storageModulus
+      .map((value, index) => ({ x: frequencies[index], y: value }))
+      .filter(p => p.x > 0 && p.y > 0)
+      .sort((a, b) => a.x - b.x);
+    const lossModulusData = lossModulus
+      .map((value, index) => ({ x: frequencies[index], y: value }))
+      .filter(p => p.x > 0 && p.y > 0)
+      .sort((a, b) => a.x - b.x);
 
     const ctx = chartCanvas.getContext("2d");
     if (!ctx) return;
@@ -135,14 +136,18 @@
     const scaledStorage = storageModulus.map((s) => s * yScaling);
     const scaledLoss = lossModulus.map((l) => l * yScaling);
 
-    chart.data.datasets[0].data = scaledFreq.map((x, i) => ({
-      x: x,
-      y: scaledStorage[i],
-    }));
-    chart.data.datasets[1].data = scaledFreq.map((x, i) => ({
-      x: x,
-      y: scaledLoss[i],
-    }));
+    // Filter and sort scaled data
+    const storageModulusData = scaledStorage
+      .map((value, index) => ({ x: scaledFreq[index], y: value }))
+      .filter(p => p.x > 0 && p.y > 0)
+      .sort((a, b) => a.x - b.x);
+    const lossModulusData = scaledLoss
+      .map((value, index) => ({ x: scaledFreq[index], y: value }))
+      .filter(p => p.x > 0 && p.y > 0)
+      .sort((a, b) => a.x - b.x);
+
+    chart.data.datasets[0].data = storageModulusData;
+    chart.data.datasets[1].data = lossModulusData;
 
     // Update axis limits
     const options = chart.options.scales!;
@@ -168,11 +173,16 @@
     const storageModulus = result.g_prime;
     const lossModulus = result.g_double_prime;
 
-    // Calculate min/max values from the dataset
-    xMin = Math.min(...frequencies);
-    xMax = Math.max(...frequencies);
-    yMin = Math.min(...storageModulus, ...lossModulus);
-    yMax = Math.max(...storageModulus, ...lossModulus);
+    // Filter data for valid values
+    const validStorage = storageModulus.filter((_, i) => frequencies[i] > 0 && storageModulus[i] > 0 && lossModulus[i] > 0);
+    const validLoss = lossModulus.filter((_, i) => frequencies[i] > 0 && storageModulus[i] > 0 && lossModulus[i] > 0);
+    const validFreq = frequencies.filter((f, i) => f > 0 && storageModulus[i] > 0 && lossModulus[i] > 0);
+
+    // Calculate min/max values from the filtered dataset
+    xMin = Math.min(...validFreq);
+    xMax = Math.max(...validFreq);
+    yMin = Math.min(...validStorage, ...validLoss);
+    yMax = Math.max(...validStorage, ...validLoss);
     xScaling = 1;
     yScaling = 1;
 

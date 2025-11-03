@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { preventDefault, run } from "svelte/legacy";
+  import { preventDefault } from "svelte/legacy";
   /**
    * Port of the legacy Django template (old.html) to Svelte.
    * Replaces server POST endpoints with local web‑worker predictors.
@@ -57,7 +57,7 @@
   let mw_xlinks = $state(0);
 
   // Initialize molecular weights when polymer changes
-  run(() => {
+  $effect(() => {
     mw_bifunctional = roundToStep(30 * selectedPolymer.bead_mass);
     mw_xlinks = roundToStep(1 * selectedPolymer.bead_mass);
   });
@@ -86,9 +86,30 @@
   }
   const n_zerofunctional_chains = 0; // hidden & fixed
 
-  // Reactive min/max for crosslink conversion p
-  let pMin = $state(0.0);
-  let pMax = $state(1.0);
+  // Reactive min/max for crosslink conversion p (computed from other parameters)
+  let pMin = $derived.by(() => {
+    // p_gel = sqrt( 1 / (r*(f-1)*b2) )
+    const denom =
+      stoichiometric_imbalance *
+      (crosslink_functionality - 1) *
+      b2_molar_fraction;
+    let pgel = denom > 0 ? Math.sqrt(1 / denom) : 1;
+    if (!isFinite(pgel)) pgel = 1;
+    return clamp(toStep(pgel, 0.01, "up"), 0, 1);
+  });
+
+  let pMax = $derived.by(() => {
+    // p_max logic from legacy JS:
+    const max_possible_bonds =
+      n_bifunctional_chains * 2 + n_monofunctional_chains;
+    const n_xlinks =
+      (max_possible_bonds * stoichiometric_imbalance) / crosslink_functionality;
+    const p_max_calc =
+      n_xlinks > 0
+        ? max_possible_bonds / (n_xlinks * crosslink_functionality)
+        : 1;
+    return clamp(toStep(Math.min(1, p_max_calc), 0.01, "down"), 0, 1);
+  });
 
   function toStep(value: number, step: number, dir: "up" | "down") {
     return dir === "up"
@@ -367,35 +388,18 @@
   let bead_mass = $derived(selectedPolymer.bead_mass);
   let n_beads_xlinks = $derived(Math.max(1, Math.round(mw_xlinks / bead_mass)));
   let max_crosslink_functionality = $derived(Math.max(6, n_beads_xlinks * 6));
-  run(() => {
+  $effect(() => {
     crosslink_functionality = Math.min(
       crosslink_functionality,
       max_crosslink_functionality
     );
   });
-  run(() => {
-    // p_gel = sqrt( 1 / (r*(f-1)*b2) )
-    const denom =
-      stoichiometric_imbalance *
-      (crosslink_functionality - 1) *
-      b2_molar_fraction;
-    let pgel = denom > 0 ? Math.sqrt(1 / denom) : 1;
-    if (!isFinite(pgel)) pgel = 1;
-    pMin = clamp(toStep(pgel, 0.01, "up"), 0, 1);
-
-    // p_max logic from legacy JS:
-    const max_possible_bonds =
-      n_bifunctional_chains * 2 + n_monofunctional_chains;
-    const n_xlinks =
-      (max_possible_bonds * stoichiometric_imbalance) / crosslink_functionality;
-    const p_max_calc =
-      n_xlinks > 0
-        ? max_possible_bonds / (n_xlinks * crosslink_functionality)
-        : 1;
-    pMax = clamp(toStep(Math.min(1, p_max_calc), 0.01, "down"), 0, 1);
-    // Clamp user input
+  
+  // Clamp crosslink_conversion when pMin/pMax change
+  $effect(() => {
     crosslink_conversion = clamp(crosslink_conversion, pMin, pMax);
   });
+  
   // Convert molecular weights to bead numbers
   let n_beads_bifunctional = $derived(Math.round(mw_bifunctional / bead_mass));
   let n_beads_monofunctional = $derived(
@@ -542,8 +546,8 @@
             <input
               type="number"
               step="0.01"
-              min={pMin}
-              max={pMax}
+              min={format2(pMin)}
+              max={format2(pMax)}
               bind:value={crosslink_conversion}
               class="form-control"
               oninput={markDirty}

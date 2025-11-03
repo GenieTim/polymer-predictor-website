@@ -62,9 +62,6 @@
         <p>{loadingText}</p>
       {:else if hasResult}
         {@render children()}
-        {#if loading}
-          <p class="mt-2 text-muted">Refining...</p>
-        {/if}
       {:else}
         <p>{emptyText}</p>
       {/if}
