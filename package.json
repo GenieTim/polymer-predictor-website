@@ -14,26 +14,26 @@
     "test:coverage": "vitest run --coverage"
   },
   "devDependencies": {
-    "@sveltejs/vite-plugin-svelte": "^7.1.2",
-    "@tsconfig/svelte": "^5.0.4",
-    "@types/node": "^24.6.2",
-    "@vitest/ui": "^4.1.8",
-    "happy-dom": "^20.8.9",
-    "jsdom": "^27.0.0",
-    "svelte": "^5.55.7",
-    "svelte-check": "^4.3.1",
-    "typescript": "^5.9.2",
+    "@sveltejs/vite-plugin-svelte": "^7.3.1",
+    "@tsconfig/svelte": "^5.0.8",
+    "@types/node": "^24.19.2",
+    "@vitest/ui": "^4.1.12",
+    "happy-dom": "^20.14.6",
+    "jsdom": "^27.4.0",
+    "svelte": "^5.57.3",
+    "svelte-check": "^4.7.7",
+    "typescript": "^5.9.3",
     "vite": "^8.3.5",
-    "vitest": "^4.1.11"
+    "vitest": "^4.1.12"
   },
   "dependencies": {
     "@types/js-quantities": "^1.6.6",
-    "chart.js": "^4.5.0",
+    "chart.js": "^4.6.1",
     "halfmoon": "^2.0.2",
     "js-quantities": "^1.8.0",
     "new-github-issue-url": "^1.1.0",
-    "onnxruntime-web": "^1.22.0",
-    "uuid": "^14.0.0",
-    "wasm-feature-detect": "^1.8.0"
+    "onnxruntime-web": "^1.23.0",
+    "uuid": "^14.0.3",
+    "wasm-feature-detect": "^1.9.0"
   }
 }

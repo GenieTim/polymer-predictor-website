@@ -40,11 +40,11 @@ function runPython(code: string): any {
 }
 
 /**
- * Check if Python 3 is available
+ * Check if Python 3 with pylimer_tools is available
  */
 function isPythonAvailable(): boolean {
   try {
-    execSync('python3 --version', { encoding: 'utf-8', timeout: 1000 });
+    execSync('python3 -c "import pylimer_tools"', { encoding: 'utf-8', timeout: 3000 });
     return true;
   } catch {
     return false;

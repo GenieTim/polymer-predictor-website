@@ -41,8 +41,10 @@ def parse_quantities_from_js(input_dict: dict):
     for key, value in input_dict.items():
         if isinstance(value, (int, float, str, list)):
             output_dict[key] = value
-        elif "value" in value and "unit" in value:
+        elif isinstance(value, dict) and "value" in value and "unit" in value:
             output_dict[key] = ureg.Quantity(value["value"], value["unit"])
+        elif hasattr(value, "value") and hasattr(value, "unit"):
+            output_dict[key] = ureg.Quantity(value.value, value.unit)
         else:
             warnings.warn(f"Unexpected type for key {key}: {type(value)}")
             output_dict[key] = value
@@ -381,7 +383,12 @@ def analyse_universe(universe: Universe, prediction_input: dict) -> dict:
 
 
 # Actual script, as called from pyodide
-results = predict_ant_results(prediction_input.as_object_map(hereditary=True))
+input_data = (
+    prediction_input.to_py()
+    if hasattr(prediction_input, "to_py")
+    else prediction_input.as_object_map(hereditary=True)
+)
+results = predict_ant_results(input_data)
 res = {
     "phantom_modulus": results.get("")
 }

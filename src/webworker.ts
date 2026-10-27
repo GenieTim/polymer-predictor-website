@@ -1,10 +1,5 @@
 // @ts-expect-error - Pyodide is loaded from CDN without type declarations
-import { loadPyodide } from "https://cdn.jsdelivr.net/pyodide/v0.28.1/full/pyodide.mjs";
-
-// Construct the wheel file URL dynamically to avoid Vite asset processing
-const wheelFileName = 'pylimer_tools-0.3.10-cp313-cp313-pyodide_2025_0_wasm32.whl';
-// Get the base path for assets - in development it's "/", in production it's "/polymer-predictor-website/"
-const pylimerTools = (import.meta.env.BASE_URL || '/') + wheelFileName;
+import { loadPyodide } from "https://cdn.jsdelivr.net/pyodide/v314.0.7/full/pyodide.mjs";
 
 let pyodideReadyPromise = loadPyodide();
 let isInitialized = false;
@@ -31,7 +26,7 @@ async function initializeWorker(pyodide: any) {
         micropip.install("pint"),
         micropip.install("click"),
         micropip.install("termcolor"),
-        micropip.install(pylimerTools),
+        micropip.install("pylimer-tools"),
       ]);
       
       isInitialized = true;

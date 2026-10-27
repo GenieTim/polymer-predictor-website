@@ -416,7 +416,7 @@
   <FeatureWarning />
 
   <div class="row">
-    <div class="column col-sm-6">
+    <div class="column col-sm-6 mb-4">
       <h2>Input</h2>
       <form onsubmit={preventDefault(onSubmit)} id="prediction-form">
         <section>
