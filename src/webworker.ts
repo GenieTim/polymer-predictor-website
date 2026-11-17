@@ -16,17 +16,17 @@ async function initializeWorker(pyodide: any) {
 
   initializationPromise = (async () => {
     try {
-      // Install micropip first
-      await pyodide.loadPackage("micropip");
+      // Install micropip and numpy first (numpy has native .so extensions that
+      // must finish dynamic linking before other native wheels are loaded)
+      await pyodide.loadPackage(["micropip", "numpy"]);
       const micropip = pyodide.pyimport("micropip");
-      
-      // Install all dependencies in parallel
-      await Promise.all([
-        micropip.install("numpy"),
-        micropip.install("pint"),
-        micropip.install("click"),
-        micropip.install("termcolor"),
-        micropip.install("pylimer-tools>=0.6.0"),
+
+      // Install remaining dependencies
+      await micropip.install([
+        "pint",
+        "click",
+        "termcolor",
+        "pylimer-tools>=0.6.0",
       ]);
       
       isInitialized = true;
