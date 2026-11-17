@@ -4,7 +4,29 @@ import PyodideWorker from "./webworker?worker";
 interface WorkerData {
   worker: Worker;
   requestCount: number;
+  activeRequests: number;
   isInitialized: boolean;
+  initPromise: Promise<void> | null;
+  initStartedAt: number;
+  initCompletedAt: number | null;
+  workerInitDurationMs: number | null;
+}
+
+export interface WorkerPoolMetrics {
+  poolSize: number;
+  initializedCount: number;
+  allReady: boolean;
+  poolCreatedAt: number;
+  firstReadyAt: number | null;
+  allReadyAt: number | null;
+  workers: Array<{
+    index: number;
+    isInitialized: boolean;
+    activeRequests: number;
+    requestCount: number;
+    wallInitMs: number | null;
+    workerInitDurationMs: number | null;
+  }>;
 }
 
 function getPromiseAndResolve<T>() {
@@ -41,12 +63,21 @@ const pending = new Map<
   { resolve: (value: any) => void; reject: (reason?: any) => void }
 >();
 
+const poolCreatedAt = performance.now();
+let firstReadyAt: number | null = null;
+let allReadyAt: number | null = null;
+
 function createWorker(): WorkerData {
   const worker = new PyodideWorker();
   const workerData: WorkerData = {
     worker,
     requestCount: 0,
+    activeRequests: 0,
     isInitialized: false,
+    initPromise: null,
+    initStartedAt: performance.now(),
+    initCompletedAt: null,
+    workerInitDurationMs: null,
   };
 
   setupWorkerListener(workerData);
@@ -70,6 +101,20 @@ function setupWorkerListener(workerData: WorkerData) {
       } else {
         if (type === "init") {
           workerData.isInitialized = true;
+          workerData.initCompletedAt = performance.now();
+          if (typeof rest.initDurationMs === "number") {
+            workerData.workerInitDurationMs = rest.initDurationMs;
+          }
+          if (firstReadyAt === null) {
+            firstReadyAt = workerData.initCompletedAt;
+          }
+          if (
+            allReadyAt === null &&
+            workerPool.length === POOL_SIZE &&
+            workerPool.every((w) => w.isInitialized)
+          ) {
+            allReadyAt = workerData.initCompletedAt;
+          }
         }
         resolve(rest);
       }
@@ -97,7 +142,12 @@ function restartWorker(workerData: WorkerData) {
   const newWorker = new PyodideWorker();
   workerData.worker = newWorker;
   workerData.requestCount = 0;
+  workerData.activeRequests = 0;
   workerData.isInitialized = false;
+  workerData.initPromise = null;
+  workerData.initStartedAt = performance.now();
+  workerData.initCompletedAt = null;
+  workerData.workerInitDurationMs = null;
 
   // Setup listeners for new worker
   setupWorkerListener(workerData);
@@ -108,8 +158,10 @@ function restartWorker(workerData: WorkerData) {
 
 async function initializeWorker(workerData: WorkerData): Promise<void> {
   if (workerData.isInitialized) return;
+  if (workerData.initPromise) return workerData.initPromise;
 
-  return new Promise((resolve, reject) => {
+  workerData.initStartedAt = performance.now();
+  workerData.initPromise = new Promise<void>((resolve, reject) => {
     const id = getId();
 
     pending.set(id, {
@@ -117,12 +169,15 @@ async function initializeWorker(workerData: WorkerData): Promise<void> {
         resolve();
       },
       reject: (error) => {
+        workerData.initPromise = null;
         reject(error);
       },
     });
 
     workerData.worker.postMessage({ id, type: "init" });
   });
+
+  return workerData.initPromise;
 }
 
 // Initialize worker pool
@@ -135,19 +190,57 @@ for (let i = 0; i < POOL_SIZE; i++) {
   });
 }
 
-// Round-robin selection with recycling
+// Prefer initialized & idle workers, then least-busy initialized, else round-robin
 let rrIndex = 0;
 function nextWorker(): WorkerData {
-  const workerData = workerPool[rrIndex];
+  let selected: WorkerData | undefined;
 
-  // Check if worker needs recycling
-  if (workerData.requestCount >= MAX_REQUESTS_PER_WORKER) {
-    console.log("Recycling worker due to request limit");
-    restartWorker(workerData);
+  // 1. Prefer an initialized, idle worker
+  for (let offset = 0; offset < workerPool.length; offset++) {
+    const idx = (rrIndex + offset) % workerPool.length;
+    const candidate = workerPool[idx];
+    if (
+      candidate.isInitialized &&
+      candidate.activeRequests === 0 &&
+      candidate.requestCount < MAX_REQUESTS_PER_WORKER
+    ) {
+      selected = candidate;
+      rrIndex = (idx + 1) % workerPool.length;
+      break;
+    }
   }
 
-  rrIndex = (rrIndex + 1) % workerPool.length;
-  return workerData;
+  // 2. Otherwise pick the initialized worker with the fewest active requests
+  if (!selected) {
+    let bestActive = Infinity;
+    for (let offset = 0; offset < workerPool.length; offset++) {
+      const idx = (rrIndex + offset) % workerPool.length;
+      const candidate = workerPool[idx];
+      if (
+        candidate.isInitialized &&
+        candidate.requestCount < MAX_REQUESTS_PER_WORKER &&
+        candidate.activeRequests < bestActive
+      ) {
+        bestActive = candidate.activeRequests;
+        selected = candidate;
+        rrIndex = (idx + 1) % workerPool.length;
+      }
+    }
+  }
+
+  // 3. Fallback to round-robin if none are initialized yet
+  if (!selected) {
+    selected = workerPool[rrIndex];
+    rrIndex = (rrIndex + 1) % workerPool.length;
+  }
+
+  // Check if worker needs recycling
+  if (selected.requestCount >= MAX_REQUESTS_PER_WORKER) {
+    console.log("Recycling worker due to request limit");
+    restartWorker(selected);
+  }
+
+  return selected;
 }
 
 // Send a message with id, resolve when matching response returns
@@ -158,6 +251,7 @@ function requestResponse(msg: any) {
   pending.set(id, { resolve, reject });
 
   const workerData = nextWorker();
+  workerData.activeRequests++;
 
   // Ensure worker is initialized before sending prediction request
   const sendRequest = async () => {
@@ -177,7 +271,35 @@ function requestResponse(msg: any) {
   };
 
   sendRequest();
-  return promise;
+  return promise.finally(() => {
+    workerData.activeRequests = Math.max(0, workerData.activeRequests - 1);
+  });
+}
+
+export function getWorkerPoolMetrics(): WorkerPoolMetrics {
+  const initializedCount = workerPool.filter((w) => w.isInitialized).length;
+  return {
+    poolSize: workerPool.length,
+    initializedCount,
+    allReady: initializedCount === workerPool.length,
+    poolCreatedAt,
+    firstReadyAt,
+    allReadyAt,
+    workers: workerPool.map((w, index) => ({
+      index,
+      isInitialized: w.isInitialized,
+      activeRequests: w.activeRequests,
+      requestCount: w.requestCount,
+      wallInitMs:
+        w.initCompletedAt !== null ? w.initCompletedAt - w.initStartedAt : null,
+      workerInitDurationMs: w.workerInitDurationMs,
+    })),
+  };
+}
+
+export async function whenPoolReady(): Promise<WorkerPoolMetrics> {
+  await Promise.all(workerPool.map((w) => initializeWorker(w)));
+  return getWorkerPoolMetrics();
 }
 
 export async function asyncRun(script: string, context: any) {

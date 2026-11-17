@@ -4,6 +4,7 @@ import { loadPyodide } from "https://cdn.jsdelivr.net/pyodide/v314.0.7/full/pyod
 let pyodideReadyPromise = loadPyodide();
 let isInitialized = false;
 let initializationPromise: Promise<void> | null = null;
+let initDurationMs: number | null = null;
 
 async function initializeWorker(pyodide: any) {
   if (isInitialized) return;
@@ -15,6 +16,7 @@ async function initializeWorker(pyodide: any) {
   }
 
   initializationPromise = (async () => {
+    const start = performance.now();
     try {
       // Install micropip and numpy first (numpy has native .so extensions that
       // must finish dynamic linking before other native wheels are loaded)
@@ -28,10 +30,20 @@ async function initializeWorker(pyodide: any) {
         "termcolor",
         "pylimer-tools>=0.6.0",
       ]);
+
+      // Pre-import core modules and C++ extensions during background warmup
+      // so the first prediction does not pay dlopen/import latency.
+      await pyodide.runPythonAsync(
+        "import math, warnings, numpy, pint, pylimer_tools, pylimer_tools_cpp"
+      );
       
       isInitialized = true;
-      console.log("Worker initialized successfully");
+      initDurationMs = performance.now() - start;
+      console.log(
+        `Worker initialized successfully in ${initDurationMs.toFixed(0)} ms`
+      );
     } catch (error) {
+      initializationPromise = null;
       console.error("Worker initialization failed:", error);
       throw error;
     }
@@ -41,14 +53,14 @@ async function initializeWorker(pyodide: any) {
 }
 
 self.onmessage = async (event) => {
-  const { id, python, context, type } = event.data;
+  const { id, python, context, type, loadImports } = event.data;
   
   try {
     // Handle initialization request
     if (type === "init") {
       const pyodide = await pyodideReadyPromise;
       await initializeWorker(pyodide);
-      self.postMessage({ id, type: "init", success: true });
+      self.postMessage({ id, type: "init", success: true, initDurationMs });
       return;
     }
 
@@ -56,12 +68,15 @@ self.onmessage = async (event) => {
     const pyodide = await pyodideReadyPromise;
     await initializeWorker(pyodide);
     
-    // Load any additional packages needed for this specific script
-    await pyodide.loadPackagesFromImports(python);
+    // Only scan imports when explicitly requested; standard worker scripts
+    // only use packages pre-loaded in initializeWorker.
+    if (loadImports) {
+      await pyodide.loadPackagesFromImports(python);
+    }
     
     // Create Python dictionary with the data from context
     const dict = pyodide.globals.get("dict");
-    const globals = dict(Object.entries(context));
+    const globals = dict(Object.entries(context || {}));
     
     // Execute the python code in this context
     let result = await pyodide.runPythonAsync(python, { globals });

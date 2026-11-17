@@ -5,6 +5,7 @@ import "halfmoon/css/halfmoon.min.css";
 import "./color-mode-toggle";
 //
 import App from "./App.svelte";
+import Benchmark from "./Benchmark.svelte";
 import Home from "./Home.svelte";
 import NotFound from "./NotFound.svelte";
 
@@ -46,6 +47,11 @@ switch (currentRoute) {
     break;
   case "/predictor":
     app = mount(App, {
+      target: document.getElementById("app")!,
+    });
+    break;
+  case "/benchmark":
+    app = mount(Benchmark, {
       target: document.getElementById("app")!,
     });
     break;
