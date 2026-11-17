@@ -26,7 +26,7 @@ async function initializeWorker(pyodide: any) {
         micropip.install("pint"),
         micropip.install("click"),
         micropip.install("termcolor"),
-        micropip.install("pylimer-tools"),
+        micropip.install("pylimer-tools>=0.6.0"),
       ]);
       
       isInitialized = true;
