@@ -8,7 +8,7 @@ from pint import UnitRegistry
 from pylimer_tools.generate_network import generate_structure
 from pylimer_tools.io.bead_spring_parameter_provider import (
     Parameters, get_gaussian_parameters_for_polymer)
-from pylimer_tools_cpp import NormalModeAnalyzer
+from pylimer_tools_cpp import HybridConfig, NormalModeAnalyzer
 
 crosslink_type = 2
 same_strand_cutoff = 0.0
@@ -110,13 +110,14 @@ def predict_normal_mode_results(prediction_input_dict: dict) -> dict:
         spring_to=edges["edge_to"],
     )
 
-    nma.find_all_eigenvalues()
+    spectrum = nma.solve_approx(HybridConfig())
 
     frequencies = np.logspace(-5, 5, num=1000)
+    storage_modulus, loss_modulus = spectrum.moduli(frequencies)
     return {
         "frequencies": frequencies,
-        "storage_modulus": nma.evaluate_storage_modulus(frequencies),
-        "loss_modulus": nma.evaluate_loss_modulus(frequencies),
+        "storage_modulus": storage_modulus,
+        "loss_modulus": loss_modulus,
     }
 
 

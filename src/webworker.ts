@@ -28,7 +28,7 @@ async function initializeWorker(pyodide: any) {
         "pint",
         "click",
         "termcolor",
-        "pylimer-tools>=0.6.0",
+        "pylimer-tools>=0.7.0",
       ]);
 
       // Pre-import core modules and C++ extensions during background warmup
